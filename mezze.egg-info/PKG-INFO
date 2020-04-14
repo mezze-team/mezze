@@ -1,0 +1,16 @@
+Metadata-Version: 1.1
+Name: mezze
+Version: 0.0.1
+Summary: Mezze Quantum Simulator
+Home-page: http://jhuapl.edu
+Author: Johns Hopkins University Applied Physics Laboratory
+Author-email: kevin.schultz@jhuapl.edu
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: Beta
+Classifier: Environment :: Console
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python
