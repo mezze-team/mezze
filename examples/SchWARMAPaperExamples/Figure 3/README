@@ -1,0 +1,11 @@
+For a fairly gentle intoduction to using SchWARMA within a circuit model of quantum computing, look through the SurfaceSyndromeSchWARMAExample.ipynb example.
+
+The two python scripts SurfaceXSyndrome.py and SurfaceYSyndrome.py files were the scripts used to generate Fig. 3 in arXiv:xxxx.xxxxx. Example PBS bash scripts that call those files to generate the plots are given in the two bash scripts. The calling procedure is the same for both:
+python SurfaceXSyndrome.py <noise_pow_idx> <corr_time_idx> <output_directory>
+python SurfaceZSyndrome.py <noise_pow_idx> <corr_time_idx> <output_directory>
+where <noise_pow_idx> = [0,1,...,5] inclusive, <corr_time_idx> = [0,1,...,7] inclusive, and <output_directory> is the directory to dump the output files.
+
+The results can be plotting by using the command:
+python plot_syndrome_results <output_directory> --savefig --syndrome <X,Z>
+The optional argument --savefig causes all the output figures to be saved in the directory.
+The optional argument --syndrome X makes the titles specific to X syndromes and --syndrome Z makes the titles specific to Z syndromes.
