@@ -18,8 +18,10 @@ setup(
     url='http://jhuapl.edu',
     packages=find_packages(),
     install_requires=[
+        'tensorflow',
+        'tensorflow-quantum',
         'numpy',
-        'scipy'
+        'scipy',
     ],
     classifiers=[
         'Development Status :: Beta',
