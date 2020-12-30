@@ -26,6 +26,7 @@ import scipy.signal as si
 import cirq
 
 from mezze.tfq import *
+import mezze.channel as ch
 
 import tensorflow as tf
 import tensorflow_quantum as tfq
@@ -127,7 +128,7 @@ class TestTFQ(unittest.TestCase):
 
         noisy_circ, syms = S.schwarmafy(circ)
 
-        sim1 = CirqSchWARMASimulator(circ,S)
+        sim1 = CirqSchWARMASim(circ,S)
         sim2 = TensorFlowSchWARMASim(circ,S)
 
         rgen1 = np.random.RandomState(0)
@@ -142,6 +143,31 @@ class TestTFQ(unittest.TestCase):
         st2 = sim2.state_sim(num_MC=5, rgen=rgen2)
         
         self.assertLessEqual(np.max(np.abs(st1-st2)),1e-5)
+
+    def test_unitary_props_sim(self):
+
+        circ = cirq.generate_boixo_2018_supremacy_circuits_v2_grid(2,2,10,0)
+        S = SimpleDephasingSchWARMAFier([0,],[1,-.9])
+
+        noisy_circ, syms = S.schwarmafy(circ)
+
+        sim = CirqSchWARMASim(circ,S)
+
+        props = sim.unitary_props_sim(num_MC=10,rgen=np.random.RandomState(124))
+        self.assertEqual(len(props),10)
+        self.assertEqual(type(props[0]),ch.QuantumChannel)
+
+        dm = sim.dm_sim(num_MC=1,rgen=np.random.RandomState(124))
+
+        state = ch.QuantumState(np.eye(4**4)[0,:,np.newaxis],'dv')
+
+        dm2 = props[0]*state
+
+        self.assertLess(np.linalg.norm(dm-dm2.density_matrix()),1e-6)
+
+        props = sim.unitary_props_sim(num_MC=10,as_channel=False,rgen=np.random.RandomState(124))
+        self.assertEqual(len(props),10)
+        self.assertEqual(type(props[0]),np.ndarray)
 
     def test_noise_mc(self):
 
@@ -158,8 +184,139 @@ class TestTFQ(unittest.TestCase):
 
         self.assertEqual(np.linalg.norm(out1-out2),0.0)
 
+    def test_single_qubit_control(self):
 
+        q0 = cirq.GridQubit(0,0)
+        q1 = cirq.GridQubit(1,0)
+        circ = cirq.Circuit([cirq.rx(1).on(q0),cirq.X(q1)**.5,cirq.ry(1).on(q0),cirq.ry(3).on(q1),cirq.X(q0), cirq.Y(q1)**.25])
+        S = SingleQubitControlSchWARMAFier([.1],[1],[cirq.ops.common_gates.XPowGate, cirq.ops.pauli_gates._PauliX], cirq_gate_multiplicative)
+        noisy_circ, h_array = S.schwarmafy(circ)
 
+        self.assertEqual(len(h_array),6)
+        self.assertEqual(len(noisy_circ),5)
+        self.assertEqual(len(noisy_circ[-1]),1)
+        op = list(noisy_circ[-1])[0]
+        self.assertEqual(type(op._gate), cirq.ops.common_gates.XPowGate)
+        self.assertTrue(op.gate.exponent.__str__().split('*'), '1.0' )
+
+        S = SingleQubitControlSchWARMAFier([.1],[1],
+            [cirq.ops.common_gates.XPowGate, cirq.ops.pauli_gates._PauliX,
+            cirq.ops.common_gates.YPowGate, cirq.ops.pauli_gates._PauliY],
+            cirq_gate_multiplicative)
+
+        noisy_circ, h_array = S.schwarmafy(circ)
+
+        self.assertEqual(len(h_array),6)
+        self.assertEqual(len(noisy_circ),6)
+        self.assertEqual(len(noisy_circ[-1]),2)
+        
+        op = list(noisy_circ[-1])[0]
+        self.assertEqual(type(op._gate), cirq.ops.common_gates.XPowGate)
+        self.assertEqual(op.gate.exponent.__str__().split('*')[0], '1.0' )
+        
+        op = list(noisy_circ[-1])[1]
+        self.assertEqual(type(op._gate), cirq.ops.common_gates.YPowGate)
+        self.assertEqual(op.gate.exponent.__str__().split('*')[0], '0.25' )
+
+        sim = TensorFlowSchWARMASim(circ,S).dm_sim(1)
+        sim = TensorFlowSchWARMASim(circ,S).dm_sim(3)
+
+    def test_gate_qubit_dependent_error(self):
+
+        q0 = cirq.GridQubit(0,0)
+        q1 = cirq.GridQubit(1,0)
+        q2 = cirq.GridQubit(2,0)
+
+        circ = cirq.Circuit([cirq.CX(q0,q1),cirq.CX(q1,q2),cirq.CX(q0,q2),cirq.CZ(q0,q1), cirq.CX(q0,q1)])
+
+        S  = GateQubitDependentSchWARMAFier([.1,],[1,], cirq.ops.common_gates.CXPowGate, [q0,q1], cirq_gate_multiplicative)
+        noisy_circ, h_array = S.schwarmafy(circ)
+
+        self.assertEqual(len(noisy_circ),len(circ)+2)
+        self.assertEqual(len(h_array),len(circ))
+        
+        op = list(noisy_circ[1])[0]
+        self.assertEqual(type(op._gate),cirq.ops.common_gates.CXPowGate)
+        self.assertEqual(op.gate.exponent.__str__(),'1.0*h_0')
+        
+        op = list(noisy_circ[-1])[0]
+        self.assertEqual(type(op._gate),cirq.ops.common_gates.CXPowGate)
+        self.assertEqual(op.gate.exponent.__str__(),'1.0*h_4')
+        
+        sim = TensorFlowSchWARMASim(circ,S).dm_sim(3)
+        
+        S  = GateQubitDependentSchWARMAFier([.1,],[1,], cirq.ops.common_gates.CXPowGate, [q1,q2], cirq_gate_multiplicative)
+        noisy_circ, h_array = S.schwarmafy(circ)
+
+        self.assertEqual(len(noisy_circ),len(circ)+1)
+        self.assertEqual(len(h_array),len(circ))
+        
+        op = list(noisy_circ[2])[0]
+        self.assertEqual(type(op._gate),cirq.ops.common_gates.CXPowGate)
+        self.assertEqual(op.gate.exponent.__str__(),'1.0*h_1')
+
+        sim = TensorFlowSchWARMASim(circ,S).dm_sim(3)
+        
+        S  = GateQubitDependentSchWARMAFier([.1,],[1,], cirq.ops.common_gates.CZPowGate, [q0,q1], cirq_gate_multiplicative)
+        noisy_circ, h_array = S.schwarmafy(circ)
+
+        self.assertEqual(len(noisy_circ),len(circ)+1)
+        self.assertEqual(len(h_array),len(circ))
+        
+        op = list(noisy_circ[4])[0]
+        self.assertEqual(type(op._gate),cirq.ops.common_gates.CZPowGate)
+        self.assertEqual(op.gate.exponent.__str__(),'1.0*h_3')
+
+        sim = TensorFlowSchWARMASim(circ,S).dm_sim(3)
+
+    def test_SequentialSchWARMAFier(self):
+
+        q0 = cirq.GridQubit(0,0)
+        q1 = cirq.GridQubit(1,0)
+        q2 = cirq.GridQubit(2,0)
+
+        circ = [cirq.CX(q0,q1),cirq.CX(q1,q2), cirq.I(q0), cirq.Z(q0)**.5,cirq.Z(q1)**.5,cirq.Z(q2)**.5, cirq.CX(q2,q1), cirq.CX(q1,q0),cirq.I(q2), cirq.Z(q0)**.25,cirq.Z(q1)**.25, cirq.Z(q2)**.25]
+        circ = cirq.Circuit(circ)
+
+        S1 = SingleQubitControlSchWARMAFier([.1],[1],[cirq.ops.common_gates.ZPowGate, cirq.ops.pauli_gates._PauliZ],cirq_gate_multiplicative)
+        Ss = [GateQubitDependentSchWARMAFier([.1],[1], cirq.ops.common_gates.CXPowGate, qq, cirq_gate_multiplicative, sym) for sym, qq in zip(['a','b','c','d'],[(q0,q1),(q1,q2),(q2,q1),(q1,q0)])]
+
+        Stot = SequentialSchWARMAFier([S1]+Ss)
+
+        noisy_circ, h_array = Stot.schwarmafy(circ)
+
+        self.assertEqual(len(noisy_circ),2*len(circ))
+        self.assertEqual(len(h_array), (3+4)*len(circ))
+
+        sim = CirqSchWARMASim(circ, Stot).dm_sim(1)
+        sim = TensorFlowSchWARMASim(circ, Stot).dm_sim(3)
+
+    def test_SequentialSchWARMAFier(self):
+
+        q0 = cirq.GridQubit(0,0)
+        q1 = cirq.GridQubit(1,0)
+        q2 = cirq.GridQubit(2,0)
+
+        circ = [cirq.CX(q0,q1),cirq.CX(q1,q2), cirq.I(q0), cirq.Z(q0)**.5,cirq.Z(q1)**.5,cirq.Z(q2)**.5, cirq.CX(q2,q1), cirq.CX(q1,q0),cirq.I(q2), cirq.Z(q0)**.25,cirq.Z(q1)**.25, cirq.Z(q2)**.25]
+        circ = cirq.Circuit(circ)
+
+        S1 = SingleQubitControlSchWARMAFier([.1],[1],[cirq.ops.common_gates.ZPowGate, cirq.ops.pauli_gates._PauliZ],cirq_gate_multiplicative)
+        Ss = [GateQubitDependentSchWARMAFier([.1],[1], cirq.ops.common_gates.CXPowGate, qq, cirq_gate_multiplicative, sym) for sym, qq in zip(['a','b','c','d'],[(q0,q1),(q1,q2),(q2,q1),(q1,q0)])]
+
+        Stot = SequentialSchWARMAFier([S1]+Ss)
+
+        circ = Stot.gen_noisy_circuit(circ)
+
+        self.assertIsInstance(circ, cirq.Circuit)
+
+        out = cirq.Simulator().simulate(circ).final_state_vector
+
+        circs = Stot.gen_noisy_circuit(circ, 3)
+
+        self.assertIsInstance(circs[0], cirq.Circuit)
+        self.assertEqual(len(circs), 3)
+
+        out = [cirq.Simulator().simulate(circ).final_state_vector for circ in circs]
 
 if __name__ == '__main__':
     unittest.main()
