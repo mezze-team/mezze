@@ -117,7 +117,7 @@ class FFTNoise(Noise):
     def _calculate_phi(self, corr_values):
         corr_values = list(corr_values)
         rho = np.real(np.concatenate((corr_values, np.flipud(corr_values[1:-1]))))
-        q = np.real(scipy.ifft(rho))*len(rho)
+        q = np.real(scipy.fft.ifft(rho))*len(rho)
         q[q<0] = 0
         return np.sqrt(q)
 
@@ -133,7 +133,7 @@ class FFTNoise(Noise):
         z[n-1] = rgen.randn(1) * np.sqrt(N)
         z[1:n-1] = (rgen.randn(n-2) +1j * rgen.randn(n-2))*np.sqrt(N/2)
         z[n:] = np.conj(np.flipud(z[1:n-1]))
-        x = scipy.fft(self.phi*z)/N
+        x = scipy.fft.fft(self.phi*z)/N
         return np.real(x[0:self.num_steps])
 
     def _estimate_psd(self, x):

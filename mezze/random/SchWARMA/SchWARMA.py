@@ -331,8 +331,8 @@ def downconvert_from_SchWARMA(b, dcv, tfinal=None, a=None, outN=None):
     if a is not None:
         raise NotImplementedError
 
-    if outN == None:
-        outN = np.floor(len(b) / 2)
+    if outN is None:
+        outN = len(b)
 
     rx = acv_from_b(b, kmax=int(tfinal * dcv))
 

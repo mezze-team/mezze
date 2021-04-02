@@ -68,5 +68,13 @@ class TestNoise(unittest.TestCase):
             factory.get({'type': 'red'})
 
 
+    def test_generation(self):
+        factory = NoiseFactory(1, 1000)
+        n = factory.get({'type': 'pink', 'amp': 0.3, 'omega_min': 2*np.pi, 'omega_max': 2*np.pi*1e9})
+        self.assertIsInstance(n, PinkCutoffNoise)
+
+        v = n.generate()
+        self.assertEqual(len(v),1000)
+
 if __name__ == '__main__':
     unittest.main()
