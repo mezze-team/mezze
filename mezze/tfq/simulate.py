@@ -20,8 +20,12 @@
 # TO USE, THE MATERIAL, INCLUDING, BUT NOT LIMITED TO, ANY DAMAGES FOR LOST
 # PROFITS.
 
-import tensorflow_quantum as tfq
-import tensorflow as tf
+try:
+    import tensorflow_quantum as tfq
+    import tensorflow as tf
+except ImportError:
+    pass
+
 import numpy as np
 import scipy.signal as si
 import scipy.stats as st
@@ -49,12 +53,14 @@ class SchWARMAFier(ABC):
         """
         return circ, []  # circuit and symbol list
 
-    @abstractmethod
-    def gen_noise_instances(self, circ, num_MC):
+
+    def gen_noise_instances(self, circ, num_MC, rgen=np.random, SPAM=None):
         """
         Args:
             circ: noiseless cirq Circut
             num_MC: number of MC SchWARMA sequences to generate
+            rgen: np.random.Randomstate
+            SPAM: if integer, links all noise instances with SPAM specified delay
 
         Returns:
             num_MC x #symbolic gates numpy array of concrete values
@@ -66,11 +72,11 @@ class SchWARMAFier(ABC):
 
         return self.dist.rvs(size=size, random_state=rgen)
 
-    def gen_noisy_circuit(self, circ, num=1,rgen=np.random):
+    def gen_noisy_circuit(self, circ, num=1,rgen=np.random, SPAM=None):
 
         noisy_circuit, syms = self.schwarmafy(circ)
 
-        vals = self.gen_noise_instances(circ, num, rgen)
+        vals = self.gen_noise_instances(circ, num, rgen, SPAM)
         circuits = []
         for row in vals:
             resolver = cirq.ParamResolver({str(h):row[i] for i,h in enumerate(syms)})
@@ -107,7 +113,7 @@ class SimpleDephasingSchWARMAFier(SchWARMAFier):
         self.a = np.real(self.a)
 
     def psd(self, worN=8192, whole=False):
-        w, h = si.freqz(self.b, self.a, worN=worN, whole=False)
+        w, h = si.freqz(self.b, self.a, worN=worN, whole=whole)
         return w, np.abs(h) ** 2
 
     def corrfn(self, worN=8192):
@@ -144,18 +150,23 @@ class SimpleDephasingSchWARMAFier(SchWARMAFier):
 
         return noisy_circuit, h
 
-    def gen_noise_instances(self, circ, num_MC,rgen=np.random):
+    def gen_noise_instances(self, circ, num_MC, rgen=np.random, SPAM=None):
         num_qubits = len(circ.all_qubits())
         num_moments = len(circ.moments)
 
         delay = np.maximum(len(self.b), self.corr_time())
 
         #white = self._alpha_stable_samples(size=(num_qubits, num_moments+delay), rgen=rgen)
-        vals = [np.reshape(si.lfilter(self.b, self.a, 
+        if SPAM is None:
+            vals = [np.reshape(si.lfilter(self.b, self.a, 
                     self._alpha_stable_samples(size=(num_qubits, num_moments+delay), rgen=rgen)
                     )[:, delay:],(1, num_qubits * num_moments)) for _ in range(num_MC)]
 
-        
+        else:
+            vals = si.lfilter(self.b, self.a, 
+                self._alpha_stable_samples(size=(num_qubits, (num_moments+SPAM)*num_MC+delay)))[:,delay:]
+            vals = [np.reshape(vals[:,i*(num_moments+SPAM):(i+1)*(num_moments+SPAM)][:,:num_moments],
+                                (1,num_qubits*num_moments)) for i in range(num_MC)]
 
         if num_MC > 1:
             vals = np.squeeze(vals)
@@ -169,9 +180,11 @@ def cirq_gate_multiplicative(orig_op, h):
     Error generatation function for multiplicative gate errors
     A similar function will need to be custom implemented fo non-standard gates
     """  
-        
-    return (type(orig_op.gate)()**(orig_op.gate._exponent*h)).on(*orig_op._qubits)
-
+    try:
+        #old cirq    
+        return (type(orig_op.gate)()**(orig_op.gate._exponent*h)).on(*orig_op._qubits)
+    except TypeError:
+        return (type(orig_op.gate))(rads=h).on(*orig_op._qubits)
 
 class SingleQubitControlSchWARMAFier(SimpleDephasingSchWARMAFier):
     
@@ -215,7 +228,7 @@ class NullSchWARMAFier(SimpleDephasingSchWARMAFier):
     def schwarmafy(self, circ):
         return circ, []
 
-    def gen_noise_instances(self, circ, num_MC, rgen=np.random):
+    def gen_noise_instances(self, circ, num_MC, rgen=np.random, SPAM=None):
         return np.zeros((num_MC,0))
 
 
@@ -261,16 +274,23 @@ class GateQubitDependentSchWARMAFier(SimpleDephasingSchWARMAFier):
             
         return noisy_circ, h
         
-    def gen_noise_instances(self, circ, num_MC, rgen=np.random):
+    def gen_noise_instances(self, circ, num_MC, rgen=np.random, SPAM=None):
         #num_qubits = len(circ.all_qubits())
         num_moments = len(circ.moments)
 
         delay = np.maximum(len(self.b), self.corr_time())
         
         #white = self._alpha_stable_samples(size=(1, num_moments+delay), rgen=rgen)
-        vals = [np.reshape(si.lfilter(self.b, self.a,
-                self._alpha_stable_samples(size=(1, num_moments+delay), rgen=rgen)
-                )[:,delay:], (1, num_moments)) for _ in range(num_MC)]
+        if SPAM is None:
+            vals = [np.reshape(si.lfilter(self.b, self.a,
+                    self._alpha_stable_samples(size=(1, num_moments+delay), rgen=rgen)
+                    )[:,delay:], (1, num_moments)) for _ in range(num_MC)]
+
+        else:
+            vals = si.lfilter(self.b, self.a, 
+                self._alpha_stable_samples(size=(1, (num_moments+SPAM)*num_MC+delay)))[:,delay:]
+            vals = [np.reshape(vals[:,i*(num_moments+SPAM):(i+1)*(num_moments+SPAM)][:,:num_moments],
+                                (1, num_moments)) for i in range(num_MC)]
 
         if num_MC > 1:
             vals = np.squeeze(vals)
@@ -307,8 +327,8 @@ class AdditiveSchWARMAFier(SchWARMAFier):
     def schwarmafy(self, circ):
         return self.schwarmafiers[0].schwarmafy(circ)
 
-    def gen_noise_instances(self, circ, num_MC, rgen=np.random):
-        vals = [s.gen_noise_instances(circ, num_MC,rgen) for s in self.schwarmafiers]
+    def gen_noise_instances(self, circ, num_MC, rgen=np.random, SPAM=None):
+        vals = [s.gen_noise_instances(circ, num_MC,rgen,SPAM) for s in self.schwarmafiers]
         return np.sum(vals, 0)
 
 
@@ -346,9 +366,9 @@ class SequentialSchWARMAFier(SchWARMAFier):
         
         return noisy_circ, list(h_array)
 
-    def gen_noise_instances(self, circ, num_MC, rgen=np.random):
+    def gen_noise_instances(self, circ, num_MC, rgen=np.random,SPAM=None):
 
-        noises = [S.gen_noise_instances(circ,num_MC) for S in self.schwarmafiers]
+        noises = [S.gen_noise_instances(circ,num_MC,rgen,SPAM) for S in self.schwarmafiers]
         return np.concatenate(noises,1)
 
 class MatrixCorrelatorSchWARMAFier(SchWARMAFier):
@@ -368,12 +388,12 @@ class MatrixCorrelatorSchWARMAFier(SchWARMAFier):
 
         return self.schwarmafier.schwarmafy(circ)
 
-    def gen_noise_instances(self, circ, num_MC, rgen=np.random):
+    def gen_noise_instances(self, circ, num_MC, rgen=np.random, SPAM=None):
 
         #num_qubits = len(circ.all_qubits())
         num_moments = len(circ)
         
-        noises = self.schwarmafier.gen_noise_instances(circ, num_MC, rgen)
+        noises = self.schwarmafier.gen_noise_instances(circ, num_MC, rgen, SPAM)
         corr_noises = np.zeros_like(noises)
         
         for i, noise in enumerate(noises):
@@ -381,7 +401,43 @@ class MatrixCorrelatorSchWARMAFier(SchWARMAFier):
             corr_noises[i,:]=np.reshape(corr_noise,(1, noise.shape[0]))
         return corr_noises
 
+class SpecifiedInstanceSchWARMAFier(SchWARMAFier):
+    """
+    A SchWARMAFier that takes another SchWARMAFier and a given noise instance and then uses that instance to schwarmafy
+    
+    The instance will be repeated to fit the length of a given combination of circuit, shots, and SPAM delays
+    
+    """
+    
+    def __init__(self, baseSchWARMAFier, inst=None):
+        self.base = baseSchWARMAFier
+        if inst is None:
+            self.inst = np.zeros(2)
+        else:
+            self.inst = np.array(inst)
         
+    def set_instance(self, inst):
+        self.inst = np.array(inst)
+        
+    def schwarmafy(self, circ):
+        return self.base.schwarmafy(circ)
+    
+    def gen_noise_instances(self, circ, num_MC, rgen = np.random, SPAM = None):
+        base_len = self.base.gen_noise_instances(circ,1).shape[1]
+
+        if SPAM is None:
+            SPAM = 0
+        total_time = (base_len+SPAM)*num_MC
+        vals = np.tile(self.inst,int(np.ceil(total_time/len(self.inst))))
+        
+        vals = [vals[i*(base_len+SPAM):i*(base_len+SPAM)+base_len] for i in range(num_MC)]
+
+        if num_MC > 1:
+            vals = np.squeeze(vals)
+        else:
+            vals= np.array([np.squeeze(vals)])
+
+        return vals        
     
 
 class SchWARMAFiedCircuitSimulator(object):
@@ -391,9 +447,10 @@ class SchWARMAFiedCircuitSimulator(object):
 
     """
 
-    def __init__(self, circ, schwarmafier):
+    def __init__(self, circ, schwarmafier, SPAM=None):
         self.circ = circ
         self.schwarmafier = schwarmafier
+        self.SPAM=SPAM
 
         self.noisy_circuit, self.syms = self.schwarmafier.schwarmafy(self.circ)
 
@@ -405,20 +462,20 @@ class CirqSchWARMASim(SchWARMAFiedCircuitSimulator):
 
     """
 
-    def state_sim(self, num_MC, rgen=np.random):
-        vals = self.schwarmafier.gen_noise_instances(self.circ, num_MC, rgen)
+    def state_sim(self, num_MC, rgen=np.random, dtype=np.complex64):
+        vals = self.schwarmafier.gen_noise_instances(self.circ, num_MC, rgen, self.SPAM)
         states = []
-        sim = cirq.Simulator()
+        sim = cirq.Simulator(dtype=dtype)
         for row in vals:
             resolver = cirq.ParamResolver({str(h):row[i] for i,h in enumerate(self.syms)})
             states.append(sim.simulate(self.noisy_circuit, resolver).final_state_vector)
         
         return np.array(states)
 
-    def dm_sim(self, num_MC, rgen=np.random):
-        vals = self.schwarmafier.gen_noise_instances(self.circ, num_MC, rgen)
+    def dm_sim(self, num_MC, rgen=np.random, dtype=np.complex64):
+        vals = self.schwarmafier.gen_noise_instances(self.circ, num_MC, rgen, self.SPAM)
         dms = []
-        sim = cirq.DensityMatrixSimulator()
+        sim = cirq.DensityMatrixSimulator(dtype=dtype)
         for row in vals:
             resolver = cirq.ParamResolver({str(h):row[i] for i,h in enumerate(self.syms)})
             dms.append(sim.simulate(self.noisy_circuit, resolver).final_density_matrix)
@@ -426,7 +483,7 @@ class CirqSchWARMASim(SchWARMAFiedCircuitSimulator):
         return np.mean(dms,0)
 
     def unitary_props_sim(self, num_MC, as_channel = True, rgen=np.random):
-        vals = self.schwarmafier.gen_noise_instances(self.circ, num_MC, rgen)
+        vals = self.schwarmafier.gen_noise_instances(self.circ, num_MC, rgen, self.SPAM)
         unitary_props = []
         for row in vals:
             resolver = cirq.ParamResolver({str(h):row[i] for i,h in enumerate(self.syms)})
@@ -448,7 +505,7 @@ class TensorFlowSchWARMASim(SchWARMAFiedCircuitSimulator):
     """
 
     def state_sim(self, num_MC,rgen=np.random):
-        vals = tf.Variable(self.schwarmafier.gen_noise_instances(self.circ, num_MC,rgen))
+        vals = tf.Variable(self.schwarmafier.gen_noise_instances(self.circ, num_MC,rgen,self.SPAM))
         state = tfq.layers.State()
         return state(self.noisy_circuit, symbol_names=self.syms, symbol_values=vals).to_tensor().numpy()
 
@@ -458,7 +515,7 @@ class TensorFlowSchWARMASim(SchWARMAFiedCircuitSimulator):
 
     def output_sample(self, num_MC, obs=cirq.Z, pm_obs=False, rgen=np.random):
 
-        vals = tf.Variable(self.schwarmafier.gen_noise_instances(self.circ, num_MC,rgen))
+        vals = tf.Variable(self.schwarmafier.gen_noise_instances(self.circ, num_MC,rgen,self.SPAM))
         expectation = tfq.layers.Expectation()
 
         ordered_qubits = cirq.ops.QubitOrder.as_qubit_order(cirq.ops.QubitOrder.DEFAULT).order_for(self.circ.all_qubits())
@@ -472,5 +529,5 @@ class TensorFlowSchWARMASim(SchWARMAFiedCircuitSimulator):
 
     def output_expectation(self, num_MC, obs=cirq.Z, pm_obs=False, rgen=np.random):
 
-        out = self.output_sample(num_MC, obs, pm_obs, rgen)
+        out = self.output_sample(num_MC, obs, pm_obs, rgen, SPAM)
         return np.mean(out, 0)

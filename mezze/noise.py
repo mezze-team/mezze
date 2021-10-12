@@ -22,6 +22,7 @@
 
 import scipy
 import scipy.special
+import scipy.fft
 import numpy as np
 import logging
 
@@ -172,7 +173,7 @@ class WhiteNoise(Noise):
 
     def generate(self):
         data = scipy.zeros(self.num_steps)
-        for index in xrange(self.num_steps):
+        for index in range(self.num_steps):
             data[index] = np.random.randn()*self.sigma
         return data
 

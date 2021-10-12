@@ -20,8 +20,8 @@
 # TO USE, THE MATERIAL, INCLUDING, BUT NOT LIMITED TO, ANY DAMAGES FOR LOST
 # PROFITS.
 
-import tensorflow_quantum as tfq
-import tensorflow as tf
+#import tensorflow_quantum as tfq
+#import tensorflow as tf
 import numpy as np
 import scipy.signal as si
 import sympy
