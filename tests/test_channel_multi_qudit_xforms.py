@@ -135,7 +135,7 @@ class TestMultiXforms(unittest.TestCase):
         self.assertAlmostEqual(la.norm(op.choi()-op2.choi()),0,14)
 
         #This illustrates the ugliness of wanting a unit sphere
-        bvout = op.ptm()[1:,1:]*state.bloch_vector()+op.ptm()[1:,0]*1./np.sqrt(3)
+        bvout = op.ptm()[1:,1:]@state.bloch_vector()+op.ptm()[1:,0,np.newaxis]*1./np.sqrt(3)
         bvout2 = ch.QuantumState(bvout,'bv')
 
         self.assertAlmostEqual(la.norm(out.bloch_vector()-bvout),0,15)
@@ -154,7 +154,7 @@ class TestMultiXforms(unittest.TestCase):
 
         self.assertAlmostEqual(la.norm(op.choi()-op2.choi()),0,14)
         
-        bvout = op.ptm()[1:,1:]*state.bloch_vector()+op.ptm()[1:,0]
+        bvout = op.ptm()[1:,1:]@state.bloch_vector()+op.ptm()[1:,0,np.newaxis]
         bvout2 = ch.QuantumState(bvout,'bv')
 
         self.assertAlmostEqual(la.norm(out.bloch_vector()-bvout),0,14)
@@ -173,7 +173,7 @@ class TestMultiXforms(unittest.TestCase):
 
         self.assertAlmostEqual(la.norm(op.choi()-op2.choi()),0,14)
         
-        bvout = op.ptm()[1:,1:]*state.bloch_vector()+op.ptm()[1:,0]*1./np.sqrt(2)
+        bvout = op.ptm()[1:,1:]@state.bloch_vector()+op.ptm()[1:,0,np.newaxis]*1./np.sqrt(2)
         bvout2 = ch.QuantumState(bvout,'bv')
 
         self.assertAlmostEqual(la.norm(out.bloch_vector()-bvout),0,14)
@@ -193,7 +193,7 @@ class TestMultiXforms(unittest.TestCase):
         self.assertAlmostEqual(la.norm(op.choi()-op2.choi()),0,14)
 
         #This illustrates the ugliness of wanting a unit sphere
-        bvout = op.ptm()[1:,1:]*state.bloch_vector()+op.ptm()[1:,0]*1./np.sqrt(8)
+        bvout = op.ptm()[1:,1:]@state.bloch_vector()+op.ptm()[1:,0,np.newaxis]*1./np.sqrt(8)
         bvout2 = ch.QuantumState(bvout,'bv')
 
         self.assertAlmostEqual(la.norm(out.bloch_vector()-bvout),0,15)

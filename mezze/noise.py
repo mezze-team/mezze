@@ -156,7 +156,7 @@ class NullNoise(Noise):
         self.psd = lambda omega: 0.
 
     def generate(self):
-        return scipy.zeros(self.num_steps)
+        return np.zeros(self.num_steps)
 
 
 class WhiteNoise(Noise):
@@ -167,12 +167,12 @@ class WhiteNoise(Noise):
         Noise.__init__(self)
         self.num_steps = num_steps
         dt = float(time_final) / num_steps
-        self.sigma = scipy.sqrt(magnitude / dt)
+        self.sigma = np.sqrt(magnitude / dt)
         self.corrfn = lambda t: 0.
         self.psd = lambda omega: magnitude
 
     def generate(self):
-        data = scipy.zeros(self.num_steps)
+        data = np.zeros(self.num_steps)
         for index in range(self.num_steps):
             data[index] = np.random.randn()*self.sigma
         return data
@@ -188,7 +188,7 @@ class WhiteCutoffNoise(FFTNoise):
         self.amplitude = amplitude
         self.omega_min = omega_min
         self.omega_max = omega_max
-        self.corrfn = lambda t: (self.amplitude/(np.pi*t)) * (scipy.sin(self.omega_max*t) - scipy.sin(self.omega_min*t))
+        self.corrfn = lambda t: (self.amplitude/(np.pi*t)) * (np.sin(self.omega_max*t) - np.sin(self.omega_min*t))
         self.psd = lambda omega: amplitude if np.abs(omega) < omega_max and np.abs(omega) > omega_min else 0.
         FFTNoise.__init__(self, time_final, num_steps, self.corrfn, True)
 
@@ -222,11 +222,11 @@ class GaussianNoise(FFTNoise):
     def __init__(self, time_final, num_steps, amplitude, corr_time):
         self.amplitude = amplitude
         self.corr_time = corr_time
-        self.corrfn = lambda t: amplitude/2/np.sqrt(np.pi)/corr_time*scipy.exp(-(t/2/corr_time)**2)
-        self.psd = lambda omega: amplitude*scipy.exp(-(corr_time*omega)**2)
+        self.corrfn = lambda t: amplitude/2/np.sqrt(np.pi)/corr_time*np.exp(-(t/2/corr_time)**2)
+        self.psd = lambda omega: amplitude*np.exp(-(corr_time*omega)**2)
         # For QFI expressions
-        self.partial_amp = lambda omega: scipy.exp(-(corr_time*omega)**2)
-        self.partial_corr_time = lambda omega: -2.*corr_time*omega**2*amplitude*scipy.exp(-(corr_time*omega)**2)
+        self.partial_amp = lambda omega: np.exp(-(corr_time*omega)**2)
+        self.partial_corr_time = lambda omega: -2.*corr_time*omega**2*amplitude*np.exp(-(corr_time*omega)**2)
         FFTNoise.__init__(self, time_final, num_steps, self.corrfn)
 
 class BiModalGaussianNoise(Noise):
@@ -238,11 +238,11 @@ class BiModalGaussianNoise(Noise):
         #self.corr_time = corr_time
         A1, A2 = amp_list
         t1, t2, w0 = corr_list
-        #self.corrfn = lambda t: amplitude/2/np.sqrt(np.pi)/corr_time*scipy.exp(-(t/2/corr_time)**2)
-        self.psd = lambda omega: A1*scipy.exp(-(t1*omega)**2) + A2*scipy.exp(-(t2*(omega-w0))**2)
+        #self.corrfn = lambda t: amplitude/2/np.sqrt(np.pi)/corr_time*np.exp(-(t/2/corr_time)**2)
+        self.psd = lambda omega: A1*np.exp(-(t1*omega)**2) + A2*np.exp(-(t2*(omega-w0))**2)
         # For QFI expressions
-        #self.partial_amp = lambda omega: scipy.exp(-(corr_time*omega)**2)
-        #self.partial_corr_time = lambda omega: -2.*corr_time*omega**2*amplitude*scipy.exp(-(corr_time*omega)**2)
+        #self.partial_amp = lambda omega: np.exp(-(corr_time*omega)**2)
+        #self.partial_corr_time = lambda omega: -2.*corr_time*omega**2*amplitude*np.exp(-(corr_time*omega)**2)
         #FFTNoise.__init__(self, time_final, num_steps, self.corrfn)
 
 
@@ -253,7 +253,7 @@ class ExponentialNoise(FFTNoise):
     def __init__(self, time_final, num_steps, amplitude, corr_time):
         self.amplitude = amplitude
         self.corr_time = corr_time
-        self.corrfn = lambda t: amplitude * scipy.exp(-t/corr_time)
+        self.corrfn = lambda t: amplitude * np.exp(-t/corr_time)
         self.psd = lambda omega: 2*amplitude/corr_time/(corr_time**-2+(omega)**2)
         FFTNoise.__init__(self, time_final, num_steps, self.corrfn)
 
@@ -274,7 +274,7 @@ class TelegraphNoise(Noise):
         except TypeError:
                 taus = [taus, taus]
         self.telegraph_taus = taus
-        self.times = scipy.linspace(0., time_final, int(num_steps) + 1)
+        self.times = np.linspace(0., time_final, int(num_steps) + 1)
         self.corrfn = lambda t: (time_final-t)/time_final* \
         ( vals[0]**2*(taus[0]**2/(sum(taus)**2) + taus[0]*taus[1]/(sum(taus)**2)*np.exp(-(1./taus[0]+1./taus[1])*t)) \
         + vals[0]*vals[1]*(taus[0]*taus[1]/(sum(taus)**2) - taus[0]*taus[1]/(sum(taus)**2)*np.exp(-(1./taus[0]+1./taus[1])*t)) \

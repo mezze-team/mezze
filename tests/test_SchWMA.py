@@ -28,10 +28,10 @@ import copy
 import scipy.special as sp
 import mezze.channel as ch
 
-s_i = np.matrix([[1,0],[0,1]])
-s_x = np.matrix([[0,1],[1,0]])
-s_y = np.matrix([[0,-1j],[1j,0]])
-s_z = np.matrix([[1,0],[0,-1]])
+s_i = np.array([[1,0],[0,1]],dtype=complex)
+s_x = np.array([[0,1],[1,0]],dtype=complex)
+s_y = np.array([[0,-1j],[1j,0]],dtype=complex)
+s_z = np.array([[1,0],[0,-1]],dtype=complex)
 
 
 
@@ -40,19 +40,19 @@ class TestSchMA(unittest.TestCase):
     def test_init(self):
 
         ARMAS = [SchWARMA.ARMA([], np.random.randn(np.random.randint(5))+2) for _ in range(3)]
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex)))}
         MA = SchWARMA.SchWMA(ARMAS, [s_x, s_y, s_z], D)
 
     def test_bad_init(self):
         ARMAS = [SchWARMA.ARMA(np.random.randn(1), np.random.randn(np.random.randint(5))+2) for _ in range(3)]
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex)))}
         self.assertRaises(AssertionError, SchWARMA.SchWMA, 
                                         *[ARMAS, [s_x, s_y, s_z], D])
 
 
     def test_1d_fit(self):
 
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex)))}
         MA = SchWARMA.SchWMA([], [s_z], D)
 
         alpha = np.sqrt(.00001)
@@ -84,7 +84,7 @@ class TestSchMA(unittest.TestCase):
 
     def test_avg(self):
 
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex)))}
         MA = SchWARMA.SchWMA([], [s_z], D)
 
         alpha = np.sqrt(.00001)
@@ -101,14 +101,14 @@ class TestSchMA(unittest.TestCase):
         MA['I']
 
         L1 = MA.avg(1,[ch.QuantumChannel(s_z,'unitary').choi()]).liouvillian()
-        tL1 = np.matrix(np.eye(4))
+        tL1 = np.array(np.eye(4,dtype=complex))
         tL1[1,1] = args[1]
         tL1[2,2] = args[1]
 
         self.assertAlmostEqual(la.norm(L1-tL1), 0.0, 6)
 
         L2 = MA.avg(10,[ch.QuantumChannel(s_z,'unitary').choi()]).liouvillian()
-        tL2 = np.eye(4)
+        tL2 = np.eye(4,dtype=complex)
         tL2[1,1] = args[10]
         tL2[2,2] = args[10]
 
@@ -117,7 +117,7 @@ class TestSchMA(unittest.TestCase):
         self.assertLess(la.norm(L2-tL2), la.norm(tL1**10-L2))
 
     def test_3d_fit(self):
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex)))}
         MA = SchWARMA.SchWMA([], [s_z], D)
 
         alpha = np.sqrt(.00001)

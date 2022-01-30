@@ -26,6 +26,7 @@ import numpy as np
 import scipy.linalg as la
 import itertools
 import mezze.random.uniform as uni
+from mezze.random.uniform.uniform import bloch_vector
 
 class TestQuantumChannel(unittest.TestCase):
 
@@ -36,7 +37,7 @@ class TestQuantumChannel(unittest.TestCase):
             L = np.kron(gate.conj(),gate)
             D = ch.QuantumChannel(L,'liou')
             choi = D.choi()
-            choi_true = ch._vec(gate)*ch._vec(gate).H
+            choi_true = ch._vec(gate)*ch._vec(gate).conj().T
 
             self.assertEqual(la.norm(choi-choi_true),0)
 
@@ -102,7 +103,7 @@ class TestQuantumChannel(unittest.TestCase):
         self.assertEqual(np.max(errs),0)
         
         
-        S = np.zeros((8,2),dtype=np.complex)
+        S = np.zeros((8,2),dtype=np.complex128)
         for i in range(4):
             S[i*2:(i+1)*2,:] = kraus[i]
 
@@ -110,7 +111,7 @@ class TestQuantumChannel(unittest.TestCase):
         S2 = D.stiefel()
         self.assertEqual(la.norm(S-S2),0)
         
-        S = np.zeros((8,2),dtype=np.complex)
+        S = np.zeros((8,2),dtype=np.complex128)
         for i in range(4):
             S[i::4,:] = kraus[i]
 
@@ -134,7 +135,7 @@ class TestQuantumChannel(unittest.TestCase):
         PTM2 = D.ptm()
         self.assertAlmostEqual(la.norm(PTM-PTM2),0)
 
-        choi = np.sum([w.conj()*w*ch._vec(p)*ch._vec(p).H for w,p in zip(weights,paulis)], 0)
+        choi = np.sum([w.conj()*w*ch._vec(p)*ch._vec(p).conj().T for w,p in zip(weights,paulis)], 0)
         D=ch.QuantumChannel(kraus,'kraus')
         choi2 = D.choi()
         self.assertAlmostEqual(la.norm(choi-choi2),0)
@@ -151,7 +152,7 @@ class TestQuantumChannel(unittest.TestCase):
         weights = weights/la.norm(weights)
         
         kraus = [w*p for w,p  in zip(weights,paulis)]
-        S = np.zeros((8,2),dtype=np.complex)
+        S = np.zeros((8,2),dtype=np.complex128)
         for i in range(4):
             S[i*2:(i+1)*2,:] = kraus[i]
 
@@ -159,7 +160,7 @@ class TestQuantumChannel(unittest.TestCase):
         S2 = D.stiefel()
         self.assertEqual(la.norm(S-S2),0)
         
-        S2test = np.zeros((8,2),dtype=np.complex)
+        S2test = np.zeros((8,2),dtype=np.complex128)
         for i in range(4):
             S2test[i::4,:] = kraus[i]
 
@@ -188,7 +189,7 @@ class TestQuantumChannel(unittest.TestCase):
         PTM2 = D.ptm()
         self.assertAlmostEqual(la.norm(PTM-PTM2),0)
 
-        choi = np.sum([w.conj()*w*ch._vec(p)*ch._vec(p).H for w,p in zip(weights,paulis)], 0)
+        choi = np.sum([w.conj()*w*ch._vec(p)*ch._vec(p).conj().T for w,p in zip(weights,paulis)], 0)
         D=ch.QuantumChannel(S,'stiefel')
         choi2 = D.choi()
         self.assertAlmostEqual(la.norm(choi-choi2),0)
@@ -224,7 +225,7 @@ class TestQuantumChannel(unittest.TestCase):
         self.assertAlmostEqual(la.norm(errs),0,12)
 
         #Skip stiefel since it is tedious due to phase ambiguity
-        #S = np.zeros((8,2),dtype=np.complex)
+        #S = np.zeros((8,2),dtype=np.complex128)
         #for i in range(4):
         #    S[i*2:(i+1)*2,:] = kraus[i]
         D=ch.QuantumChannel(PTM,'ptm')
@@ -239,7 +240,7 @@ class TestQuantumChannel(unittest.TestCase):
 
 
 
-        choi = np.sum([w.conj()*w*ch._vec(p)*ch._vec(p).H for w,p in zip(weights,paulis)], 0)
+        choi = np.sum([w.conj()*w*ch._vec(p)*ch._vec(p).conj().T for w,p in zip(weights,paulis)], 0)
         D=ch.QuantumChannel(PTM,'ptm')
         choi2 = D.choi()
         self.assertAlmostEqual(la.norm(choi-choi2),0,12)
@@ -265,7 +266,7 @@ class TestQuantumChannel(unittest.TestCase):
         chi2 = D.chi()
         self.assertEqual(la.norm(chi-chi2),0)
         
-        choi = np.sum([w.conj()*w*ch._vec(p)*ch._vec(p).H for w,p in zip(weights,paulis)], 0)
+        choi = np.sum([w.conj()*w*ch._vec(p)*ch._vec(p).conj().T for w,p in zip(weights,paulis)], 0)
         D=ch.QuantumChannel(chi,'chi')
         choi2 = D.choi()
         self.assertAlmostEqual(la.norm(choi-choi2),0,12)
@@ -283,7 +284,7 @@ class TestQuantumChannel(unittest.TestCase):
         self.assertAlmostEqual(la.norm(errs),0,12)
 
         #Skip stiefel since it is tedious due to phase ambiguity
-        #S = np.zeros((8,2),dtype=np.complex)
+        #S = np.zeros((8,2),dtype=np.complex128)
         #for i in range(4):
         #    S[i*2:(i+1)*2,:] = kraus[i]
         D=ch.QuantumChannel(chi,'chi')
@@ -308,7 +309,7 @@ class TestQuantumChannel(unittest.TestCase):
                 if i!=j:
                     ptms[i][j,j] = -1
         
-        choi = np.sum([w.conj()*w*ch._vec(p)*ch._vec(p).H for w,p in zip(weights,paulis)], 0)
+        choi = np.sum([w.conj()*w*ch._vec(p)*ch._vec(p).conj().T for w,p in zip(weights,paulis)], 0)
         D=ch.QuantumChannel(choi,'choi')
         choi2 = D.choi()
         self.assertEqual(la.norm(choi-choi2),0)
@@ -331,7 +332,7 @@ class TestQuantumChannel(unittest.TestCase):
         self.assertAlmostEqual(la.norm(errs),0,12)
 
         #Skip stiefel since it is tedious due to phase ambiguity
-        #S = np.zeros((8,2),dtype=np.complex)
+        #S = np.zeros((8,2),dtype=np.complex128)
         #for i in range(4):
         #    S[i*2:(i+1)*2,:] = kraus[i]
         D=ch.QuantumChannel(choi,'choi')
@@ -427,5 +428,88 @@ class TestQuantumChannel(unittest.TestCase):
         self.assertEqual(C2.rank(),9)
         self.assertTrue(C2.is_valid())
 
+    def test_not_implemented(self):
+
+        try:
+            ch.QuantumChannel(np.eye(2),'notanoption')
+        except NotImplementedError:
+            pass
+        
+        chan = ch.QuantumChannel(np.eye(2),'unitary')
+        state = ch.QuantumState([[1,0],[0,0]],'dm')
+        
+        chan.natural_type='not_a_type'
+        try:
+            chan*state
+        except NotImplementedError:
+            pass
+
+    def test_missing_ptm_paths(self):
+        ptm1 = uni.choi(2).ptm()
+        ptm2 = uni.choi(2).ptm()
+
+        ch1 = ch.QuantumChannel(ptm1,'ptm')
+        ch2 = ch.QuantumChannel(ptm2,'ptm')
+
+        out = ch1*ch2
+
+        self.assertEqual(np.linalg.norm(ptm1@ptm2-out.ptm()), 0 )
+
+        bv = ptm1@(np.eye(4)[:,1])
+        bv[0]=1.0
+        rho = ch.QuantumState(bv[1:],'bv')
+
+        rho_out = ch2*rho
+
+        self.assertAlmostEqual(np.linalg.norm((ptm2@bv)[1:,np.newaxis]-rho_out.bloch_vector()),0)
+        
+    def test_partial_trace(self):
+        ch1 = uni.choi(2)
+        ch2 = uni.choi(2)
+
+        cht1 = ch1^ch2
+
+        self.assertAlmostEqual(np.linalg.norm(ch1.TrA()-ch1.TrA().conj().T),0)
+
+        self.assertAlmostEqual(np.linalg.norm(ch1.TrB()-np.eye(2)),0)
+
+        self.assertAlmostEqual(np.linalg.norm(cht1.TrB()-np.eye(4)),0)
+
+    def test_missing_stiefel2(self):
+
+        ch1 = uni.choi(2)
+
+        ch2 = ch.QuantumChannel(ch1.stiefel2(),'stiefel2')
+
+        self.assertAlmostEqual(np.linalg.norm(ch1.liouvillian()-ch2.liouvillian()),0)
+
+        ch2 = ch.QuantumChannel(ch1.stiefel2(),'stiefel2')
+        for i,k in enumerate(ch1.kraus()):
+            self.assertAlmostEqual(np.linalg.norm(k-ch2.kraus()[i]),0)
+
+    def test_is_valid_gaps(self):
+
+        ch1 = uni.choi(2)
+        self.assertTrue(ch1.is_valid())
+
+        vals,vecs = la.eigh(ch1.choi())
+        C = vecs@np.diag(vals*np.array([1,1,1,-1]))@vecs.conj().T
+
+        C = ch.QuantumChannel(C,'choi')
+        self.assertFalse(C.is_valid())
+
+        C = ch.QuantumChannel(1.1*ch1.choi(),'choi')
+        self.assertFalse(C.is_valid())
+
+        C = ch.QuantumChannel(ch1.kraus(),'kraus')
+        self.assertTrue(C.is_valid())
+
+        ks = C.kraus()
+        ks[0]+=np.random.randn(2,2)*.02
+
+        C = ch.QuantumChannel(ks,'kraus')
+        self.assertFalse(C.is_valid())
+
+        
 if __name__ == '__main__':
     unittest.main()

@@ -38,19 +38,19 @@ def choi(N, rank = None, as_channel=True, rgen = np.random):
     elif rank <1 or rank > N**2:
         raise RuntimeError
 
-    X = np.matrix(rgen.randn(N**2,rank) + 1j*rgen.randn(N**2,rank))
-    Y = _TrB(X*X.H)
+    X = np.array(rgen.randn(N**2,rank) + 1j*rgen.randn(N**2,rank))
+    Y = _TrB(X@X.conj().T)
     sqrtY = la.sqrtm(Y)
     invsY = la.inv(sqrtY)
-    LR = np.matrix(np.kron(invsY,np.eye(N)))
-    D = LR*X*X.H*LR
+    LR = np.array(np.kron(invsY,np.eye(N)))
+    D = LR@X@X.conj().T@LR
     idx = np.diag_indices(N**2)
     D[idx[0],idx[1]] = np.real(np.diag(D))
     
     if as_channel:
         return QuantumChannel(D,'choi')
     else:
-        return np.matrix(D)
+        return np.array(D)
 
 
 def stiefel(N, rank = None,as_channel=True, rgen = np.random):
@@ -62,12 +62,12 @@ def stiefel(N, rank = None,as_channel=True, rgen = np.random):
 
     X = rgen.randn(rank*N,N) + 1j*rgen.randn(rank*N,N)
     q,_ = la.qr(X)
-    q = np.matrix(q[:,:N])
+    q = np.array(q[:,:N])
 
     if as_channel:
         return QuantumChannel(q,'stiefel')
     else:
-        return np.matrix(q)
+        return np.array(q)
 
 def density_matrix(N, rank = None, as_state=True, rgen=np.random):
     U = unitary(N,as_channel=False,rgen=rgen)
@@ -81,12 +81,12 @@ def density_matrix(N, rank = None, as_state=True, rgen=np.random):
     d[rank:]=0
     d = d/la.norm(d)
     if as_state:
-        return QuantumState(np.dot(U,np.dot(np.diag(np.conj(d)*d),U.H)),'dm')
+        return QuantumState(np.dot(U,np.dot(np.diag(np.conj(d)*d),U.conj().T)),'dm')
     else:
-        return np.dot(U,np.dot(np.diag(np.conj(d)*d),U.H))
+        return np.dot(U,np.dot(np.diag(np.conj(d)*d),U.conj().T))
 
 def bloch_vector(N, pure = False, as_state=True, rgen=np.random):
-    x = np.matrix(rgen.randn(N**2-1,1))
+    x = np.array(rgen.randn(N**2-1,1))
     x = x/la.norm(x)
 
     if pure == False:

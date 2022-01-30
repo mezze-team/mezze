@@ -28,10 +28,10 @@ import copy
 import scipy.special as sp
 import mezze.channel as ch
 
-s_i = np.matrix([[1,0],[0,1]])
-s_x = np.matrix([[0,1],[1,0]])
-s_y = np.matrix([[0,-1j],[1j,0]])
-s_z = np.matrix([[1,0],[0,-1]])
+s_i = np.array([[1,0],[0,1]],dtype=complex)
+s_x = np.array([[0,1],[1,0]],dtype=complex)
+s_y = np.array([[0,-1j],[1j,0]],dtype=complex)
+s_z = np.array([[1,0],[0,-1]],dtype=complex)
 
 
 
@@ -40,19 +40,19 @@ class TestSchAR(unittest.TestCase):
     def test_init(self):
 
         ARMAS = [SchWARMA.ARMA(np.random.randn(np.random.randint(5))+2) for _ in range(3)]
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex)))}
         AR = SchWARMA.SchWAR(ARMAS, [s_x, s_y, s_z], D)
 
     def test_bad_init(self):
         ARMAS = [SchWARMA.ARMA(np.random.randn(5), np.random.randn(2)) for _ in range(3)]
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex)))}
         self.assertRaises(AssertionError, SchWARMA.SchWAR, 
                                         *[ARMAS, [s_x, s_y, s_z], D])
 
 
     def test_1d_fit(self):
 
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4)))}
         AR = SchWARMA.SchWAR([], [s_z], D)
 
         alpha = np.sqrt(.00001)
@@ -85,7 +85,7 @@ class TestSchAR(unittest.TestCase):
 
 
     def test_3d_fit(self):
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex)))}
         AR = SchWARMA.SchWAR([], [s_z], D)
 
         alpha = np.sqrt(.00001)

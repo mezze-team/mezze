@@ -308,6 +308,14 @@ def down_sample_SchWMA_model(rx, dcv, num_slow_samps):
         C[L - 1] = np.sum(vec * rx[:len(vec)])
 
     ry = opt.lsq_linear(A, C)['x']
+
+    # x0 = np.zeros(len(ry))
+    # x0[0] = np.sqrt(ry[0]+2*np.sum(ry[1:]))
+
+    # out = opt.minimize(lambda x: np.sum((acv_from_b(x)-ry)**2),x0)
+
+    # return out['x']
+    
     Ry = np.real(np.fft.fft(np.concatenate([ry, ry[1::][::-1]])))
     Ry[Ry <= 0] = np.min(Ry[Ry > 0]) / 10.
     alpha = .5 * np.log(Ry)
@@ -353,8 +361,8 @@ class SchWARMA(object):
         self.D = copy.copy(D)
         self.rgen = rgen
 
-        self.basis = [np.matrix(b) for b in self.basis]
-        shapes = np.matrix(np.concatenate([np.matrix(b.shape) for b in self.basis],0))
+        self.basis = [np.array(b,dtype=complex) for b in self.basis]
+        shapes = np.array(np.concatenate([np.array(b.shape)[np.newaxis,:] for b in self.basis],0))
 
         rmin = np.min(shapes[:,0])
         rmax = np.max(shapes[:,0])
@@ -367,19 +375,19 @@ class SchWARMA(object):
         for i in range(len(self.basis)):
             if shapes[i,0] == shapes[i,1]:
                 # square matrix, check if hermitian and turn to skew-hermitian
-                if la.norm(self.basis[i].H-self.basis[i])/(la.norm(self.basis[i])+ np.finfo(float).eps) < 1e-10:
+                if la.norm(self.basis[i].conj().T-self.basis[i])/(la.norm(self.basis[i])+ np.finfo(float).eps) < 1e-10:
                     self.basis[i] = self.basis[i]*1j
 
                 if shapes[i,0] < rmax:
-                    b = np.matrix(np.zeros((rmax,rmax),dtype=np.complex))
+                    b = np.zeros((rmax,rmax),dtype=complex)
                     b[:shapes[i,0],:shapes[i,1]] = self.basis[i]
 
                     self.basis[i] = b
             else:
                 # is a rectangular stiefel manifold element => make skew hermitian
-                b = np.matrix(np.zeros((rmax,rmax),dtype=np.complex))
+                b = np.zeros((rmax,rmax),dtype=complex)
                 b[:shapes[i,0],:shapes[i,1]] = self.basis[i]
-                b[:self.N,self.N:shapes[i,0]] = -self.basis[i][self.N:,:].H
+                b[:self.N,self.N:shapes[i,0]] = -self.basis[i][self.N:,:].conj().T
 
                 self.basis[i]=b
 
@@ -432,22 +440,25 @@ class SchWMA(SchWARMA):
             Ts = []
             for i in range(int(q)):
                 vec = np.concatenate((np.arange(i+1,0,-1),np.zeros(q-i-1)))
-                T = np.matrix(la.toeplitz(vec))
+                T = la.toeplitz(vec)
                 Ts.append(T)
                 #print T
 
             def fun(x, Ts):
-                x = np.matrix(x)
+                x = np.array(x)
                 #print x
 
                 #print x.shape
+                if len(x.shape)<2:
+                    x = x[:,np.newaxis]
                 if x.shape[0]<x.shape[1]:
                     x = x.T
 
                 #print x
 
-                out = [x.T*T*x for T in Ts]
-                return np.matrix(np.squeeze(np.array(out))).T
+                out = [x.T@T@x for T in Ts]
+                #return np.matrix(np.squeeze(np.array(out))).T
+                return np.squeeze(out)[:,np.newaxis]
 
             def min_fun(x, des):
                 return la.norm(x/des-des/des)**2
@@ -457,7 +468,7 @@ class SchWMA(SchWARMA):
 
             if mode == 'sequential':
 
-                x0 = np.matrix(np.random.rand(1)).T
+                x0 = np.random.rand(1,1)
                 x0 = x0/la.norm(x0)
 
                 for i in range(1,q+1):
@@ -476,12 +487,12 @@ class SchWMA(SchWARMA):
                 Ts=[]
                 for i in range(len(corr)-1):# range(int(q)):
                     vec = np.concatenate((np.arange(i+1,0,-1),np.zeros(len(corr)-1-i-1)))
-                    T = np.matrix(la.toeplitz(vec))
+                    T = la.toeplitz(vec)
                     Ts.append(T[:q,:q])
                     #print T
 
                 def fun(x, Ts):
-                    x = np.matrix(x)
+                    x = np.array(x)
                     #print x
 
                     #print x.shape
@@ -490,15 +501,16 @@ class SchWMA(SchWARMA):
 
                     #print x
 
-                    out = [x.T*T*x for T in Ts]
-                    return np.matrix(np.squeeze(np.array(out))).T
+                    out = [x.T@T@x for T in Ts]
+                    #return np.matrix(np.squeeze(np.array(out))).T
+                    return np.squeeze(out)[:,np.newaxis]
 
                 def min_fun(x, des):
                     return la.norm(x/des-des/des)**2
                     #return la.norm(x-des)**2
 
                     
-                x0 = np.matrix(np.random.rand(1)).T
+                x0 = np.random.rand(1,1)
                 x0 = x0/la.norm(x0)
 
                 for i in range(1,q+1):
@@ -513,14 +525,14 @@ class SchWMA(SchWARMA):
                     x0 = np.concatenate((xopt,[0]))
 
             elif mode == 'random':
-                x0 = np.matrix(np.random.rand(int(q))).T
+                x0 = np.random.rand(int(q),1)
                 x0 = x0/la.norm(x0)
                 des = np.array(corr)[1:int(q)+1,np.newaxis]
                 xopt = opt.fmin(lambda x: min_fun(fun(x,Ts),des), np.array(x0),
                                 disp= False)
 
             elif mode == 'stoch':
-                x0 = np.matrix(np.random.rand(int(q))).T
+                x0 = np.random.rand(int(q),1)
                 x0 = x0/la.norm(x0)
                 des = np.array(corr)[1:int(q)+1,np.newaxis]
                 optfun = lambda x: min_fun(fun(x,Ts),des)
@@ -548,7 +560,7 @@ class SchWMA(SchWARMA):
         out = np.zeros((len(self.models),len(ts)))
 
         for j, model in enumerate(self.models):
-            bb = np.matrix(model.b)
+            bb = np.array(model.b)[:,np.newaxis]
             if bb.shape[1] > bb.shape[0]:
                 bb = bb.T
 
@@ -561,8 +573,8 @@ class SchWMA(SchWARMA):
                 else:
                     vec = np.arange(int(t), 0, -1)[:q]
 
-                R = np.matrix(la.toeplitz(vec))
-                out[j,i] = (bb.T * R * bb)[0, 0]
+                R = la.toeplitz(vec)
+                out[j,i] = (bb.T @ R @ bb)[0, 0]
 
         return out
 
@@ -597,7 +609,7 @@ class SchWMA(SchWARMA):
     #
     #     U = np.zeros(self.basis[0].shape)
     #
-    #     L = np.zeros(np.array(self.basis[0].shape)**2,dtype=np.complex)
+    #     L = np.zeros(np.array(self.basis[0].shape)**2,dtype=complex)
     #
     #     I = np.eye(self.basis[0].shape[0])
     #
@@ -628,7 +640,7 @@ class SchWMA(SchWARMA):
     #         norms = []
     #         while not conv:
     #
-    #             Linc =  np.zeros(np.array(self.basis[0].shape)**2,dtype=np.complex)
+    #             Linc =  np.zeros(np.array(self.basis[0].shape)**2,dtype=complex)
     #
     #             for k in range(0,tot+1):
     #                 for j in range(0, tot-k+1):
@@ -735,12 +747,16 @@ class SchWAR(SchWARMA):
                     a[i] = np.sqrt(Delta[i]/corr[1])
                 else:                    
                     part = np.sqrt(Delta[:i][::-1]/corr[1])
-                    q = np.matrix(np.concatenate((part,[1])))
-                    Q = q.T*q
-                    amat = np.matrix(a[:i])
+                    q = np.concatenate((part,[1]))
+                    if len(q.shape)<2:
+                        q=q[np.newaxis,:]
+                    Q = q.T@q
+                    amat = a[:i][np.newaxis,:]
                     
-                    qfb = 2*amat*Q[:-1,-1]
-                    qfc = amat*Q[:-1,:-1]*amat.T-Delta[i]/corr[1]
+                    qfb = 2*amat@Q[:-1,-1]
+                    if len(qfb.shape)<2:
+                        qfb=qfb[:,np.newaxis]
+                    qfc = amat@Q[:-1,:-1]@amat.T-Delta[i]/corr[1]
                     
                     out = qf(1,qfb[0,0],qfc[0,0])
                     a[i]=out[0]

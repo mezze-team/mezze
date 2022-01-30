@@ -48,7 +48,7 @@ class Basis(object):
 
     def _tensor(self, N):
         self.basis_list = map(lambda x: reduce(np.kron, x), product(self.basis_list, repeat=N))
-        self.basis_list = [np.matrix(b, dtype=np.complex) for b in self.basis_list]
+        self.basis_list = [np.array(b, dtype=complex) for b in self.basis_list]
 
     def transform_matrix(self, normalized=False, return_normalization=True):
         A = np.concatenate(list(map(_vec, self.basis_list)), 1)
@@ -76,9 +76,9 @@ class PauliBasis(Basis):
 class GellMannBasis(Basis):
 
     def __init__(self, num_qudits=1):
-        self.basis_list = [np.zeros((3, 3), dtype=np.complex) for _ in range(9)]
+        self.basis_list = [np.zeros((3, 3), dtype=complex) for _ in range(9)]
 
-        self.basis_list[0] = np.eye(3, dtype=np.complex)  # *np.sqrt(2)/np.sqrt(3)
+        self.basis_list[0] = np.eye(3, dtype=complex)  # *np.sqrt(2)/np.sqrt(3)
 
         self.basis_list[1][0, 1] = 1
         self.basis_list[1][1, 0] = 1
@@ -206,9 +206,9 @@ class QuantumChannel(object):
 
         """
         if self.natural_type == 'ptm' and X.natural_type == 'ptm':
-            return QuantumChannel(self.ptm()*X.ptm(),'ptm')
+            return QuantumChannel(self.ptm()@X.ptm(),'ptm')
         else:
-            return QuantumChannel(self.liouvillian()*X.liouvillian(),'liou')
+            return QuantumChannel(self.liouvillian()@X.liouvillian(),'liou')
 
     def map(self,rho):
         """
@@ -221,13 +221,13 @@ class QuantumChannel(object):
         #Consider using apply methods in sub-classes
         if self.natural_type == 'ptm':
             ptm = self.ptm()
-            return QuantumState(np.dot(ptm[1:,1:],rho.bloch_vector())+ptm[1:,0],'bv')
+            return QuantumState(np.dot(ptm[1:,1:],rho.bloch_vector())+ptm[1:,0][:,np.newaxis],'bv')
         elif self.natural_type in ['liou','chi','choi']:
             L = self.liouvillian()
             return QuantumState(np.dot(L,rho.density_vector()),'dv')
         elif self.natural_type in ['kraus','stiefel','stiefel2']:
             ops = self.kraus()
-            phi = np.sum([np.dot(A,np.dot(rho.density_matrix(),A.H)) for A in ops],0)
+            phi = np.sum([np.dot(A,np.dot(rho.density_matrix(),A.conj().T)) for A in ops],0)
             return QuantumState(phi,'dm')
         else:
             raise NotImplementedError
@@ -267,11 +267,11 @@ class QuantumChannel(object):
 
         if self.natural_type in ['kraus','stiefel','stiefel2']:
             As = self.kraus()
-            return QuantumChannel([A.H for A in As],'kraus')
+            return QuantumChannel([A.conj().T for A in As],'kraus')
         elif self.natural_type == 'ptm':
-            return QuantumChannel(self.ptm().H,'ptm')
+            return QuantumChannel(self.ptm().conj().T,'ptm')
         else:
-            return QuantumChannel(self.liouvillian().H,'liou')
+            return QuantumChannel(self.liouvillian().conj().T,'liou')
 
     def liouvillian(self):
 
@@ -427,10 +427,10 @@ class QuantumChannel(object):
         
         
         vals,vecs = la.eigh(C)
-        vecs = np.matrix(vecs)
-        Zi = [vecs[:,-i]*vecs[:,-i].H for i in range(1,R+1)]
-        Zij = [[vecs[:,-i]*vecs[:,-j].H + vecs[:,-j]*vecs[:,-i].H for i in range(j+1,R+1)] for j in range(1,R+1)]
-        Yij = [[1j*vecs[:,-i]*vecs[:,-j].H - 1j*vecs[:,-j]*vecs[:,-i].H for i in range(j+1,R+1)] for j in range(1,R+1)]
+        #vecs = np.array(vecs)
+        Zi = [vecs[:,-i,np.newaxis]@vecs[:,-i,np.newaxis].conj().T  for i in range(1,R+1)]
+        Zij = [[vecs[:,-i,np.newaxis]@vecs[:,-j,np.newaxis].conj().T  + vecs[:,-j,np.newaxis]@vecs[:,-i,np.newaxis].conj().T  for i in range(j+1,R+1)] for j in range(1,R+1)]
+        Yij = [[1j*vecs[:,-i,np.newaxis]@vecs[:,-j,np.newaxis].conj().T - 1j*vecs[:,-j,np.newaxis]@vecs[:,-i,np.newaxis].conj().T  for i in range(j+1,R+1)] for j in range(1,R+1)]
 
         TrBZi = [_TrB(Z) for Z in Zi]
         TrBZij = [_TrB(Z) for Z in sum(Zij,[])]
@@ -468,7 +468,7 @@ class QuantumChannel(object):
         else:
             TX = TX[:,:N]
 
-        return np.matrix(TX)
+        return np.array(TX)
         
 
 class QuantumState(object):
@@ -608,7 +608,7 @@ class QuantumState(object):
 
             part1 = np.all(np.imag(vals)==0)
             part2 = np.all(np.real(vals)>-tol)
-            part3 = la.norm(self.density_matrix().H-self.density_matrix().H)==0
+            part3 = la.norm(self.density_matrix().conj().T-self.density_matrix().conj().T)==0
             part4 = np.abs(np.trace(self.density_matrix())-1)<tol
 
             return part1 and part2 and part3 and part4
@@ -646,7 +646,7 @@ class _DensityMatrix(object):
 
     def __init__(self, density_matrix):
 
-        self.density_matrix = np.matrix(density_matrix,dtype=np.complex)
+        self.density_matrix = np.array(density_matrix,dtype=complex)
 
     def get_density_vector(self):
         return _DensityVector(_vec(self.density_matrix))
@@ -661,7 +661,7 @@ class _DensityVector(object):
 
     def __init__(self, density_vector):
 
-        self.density_vector = np.matrix(density_vector,dtype=np.complex)
+        self.density_vector = np.array(density_vector,dtype=complex)
         if self.density_vector.shape[1] !=1:
             self.density_vector=self.density_vector.T
 
@@ -672,14 +672,19 @@ class _DensityVector(object):
         N = int(np.sqrt(self.density_vector.shape[0]))
         basis = _make_basis(N)
         T,c = basis.transform_matrix(False,True)
-        bv = 1./np.sqrt(N-1)*T.H*self.density_vector
+        bv = 1./np.sqrt(N-1)*T.conj().T @ self.density_vector
 
         return _BlochVector(bv[1:])
 
 class _BlochVector(object):
 
     def __init__(self, bloch_vector):
-        self.bloch_vector = np.matrix(np.real(bloch_vector))
+        self.bloch_vector = np.array(np.real(bloch_vector))
+        
+        # Error/issue: tuple index out of range
+        if len(self.bloch_vector.shape)==1:
+           self.bloch_vector=self.bloch_vector[:,np.newaxis]
+
         if self.bloch_vector.shape[1]!=1:
             self.bloch_vector = self.bloch_vector.T
 
@@ -687,7 +692,7 @@ class _BlochVector(object):
         N = int(np.sqrt(self.bloch_vector.shape[0]+1))
         basis = _make_basis(N)
         T,c = basis.transform_matrix(False,True)
-        dv=c*np.sqrt(N-1)*T*np.concatenate((np.matrix([[1./np.sqrt(N-1)]]),self.bloch_vector))
+        dv=c*np.sqrt(N-1)*T@np.concatenate((np.array([[1./np.sqrt(N-1)]]),self.bloch_vector))
         return _DensityVector(dv)
         
 
@@ -703,24 +708,28 @@ class _StateMixture(object):
         if self.weights.shape == ():
             self.weights = np.array([np.real(weights)])
 
-        self.basis = [np.matrix(b,dtype=np.complex) for b in basis]
+        self.basis = [np.array(b,dtype=complex) for b in basis]
         for i,b in enumerate(self.basis):
+            ##Added a reshape feature to account for 1 dimensional arrays
+            b = b.reshape(b.shape[0],-1)
             if b.shape[1]!=1:
                 self.basis[i]=b.T
+            else:
+                self.basis[i]=b
 
     def get_density_matrix(self):
-        return _DensityMatrix(np.sum([w*b*b.H for w,b in zip(self.weights,self.basis)],axis=0))
+        return _DensityMatrix(np.sum([w*b@b.conj().T for w,b in zip(self.weights,self.basis)],axis=0))
 
 
 class _Kraus(object):
 
     def __init__(self, op_list):
 
-        self.op_list = [np.matrix(op,dtype=np.complex) for op in op_list]
+        self.op_list = [np.array(op,dtype=complex) for op in op_list]
         self.N = self.op_list[0].shape[0]
 
     def get_choi_matrix(self):
-        return _ChoiMatrix(np.sum([np.dot(_vec(op),_vec(op).H) for op in self.op_list], axis=0))
+        return _ChoiMatrix(np.sum([np.dot(_vec(op),_vec(op).conj().T) for op in self.op_list], axis=0))
 
     def get_liouvillian(self):
         return _Liouvillian(np.sum([np.kron(np.conj(op),op) for op in self.op_list], axis =0))
@@ -730,7 +739,7 @@ class _Kraus(object):
 
     def get_stiefel2_matrix(self):
 
-        s = np.concatenate([np.concatenate([o[i,:] for o in self.op_list],0) for i in range(self.N)],0)
+        s = np.concatenate([np.concatenate([o[np.newaxis,i,:] for o in self.op_list],0) for i in range(self.N)],0)
         return _StiefelMatrix2(s)
 
     def is_CP(self, tol=0.0):
@@ -739,19 +748,19 @@ class _Kraus(object):
 
     def is_TP(self, tol=0.0):
 
-        eye = np.matrix(np.eye(self.op_list[0].shape[0]))
-        out = np.sum([op.H*eye*op for op in self.op_list],0)
+        eye = np.array(np.eye(self.op_list[0].shape[0]))
+        out = np.sum([op.conj().T@eye@op for op in self.op_list],0)
         return la.norm(eye-out)<=tol
 
     def is_unital(self, tol=0.0):
-        return la.norm(np.sum([A*A.H for A in
+        return la.norm(np.sum([A@A.conj().T for A in
                                self.op_list],0)-np.eye(self.N))<=tol
 
 class _Liouvillian(object):
 
     def __init__(self, liouvillian):
 
-        self.liouvillian = np.matrix(liouvillian,dtype=np.complex)
+        self.liouvillian = np.array(liouvillian,dtype=complex)
         self.N = int(np.sqrt(self.liouvillian.shape[0]))
 
     def get_choi_matrix(self):
@@ -760,41 +769,41 @@ class _Liouvillian(object):
     def get_pauli_transfer_matrix(self):
         basis = _make_basis(self.N)
         T,c = basis.transform_matrix(False,True)
-        return _PauliTransferMatrix(c*np.dot(T.H,np.dot(self.liouvillian,T)))
+        return _PauliTransferMatrix(c*np.dot(T.conj().T ,np.dot(self.liouvillian,T)))
         
     def is_TP(self, tol = 0.0):
         rho = _vec(np.eye(self.N))
-        return la.norm(self.liouvillian.H*rho - rho) <= tol
+        return la.norm(self.liouvillian.conj().T@rho - rho) <= tol
 
     def is_unital(self, tol = 0.0):
         rho = _vec(np.eye(self.N))
-        return la.norm(self.liouvillian*rho - rho) <= tol
+        return la.norm(self.liouvillian@rho - rho) <= tol
 
 class _PauliTransferMatrix(object):
 
     def __init__(self, ptm):
-        self.ptm = np.matrix(np.real(ptm))
+        self.ptm = np.array(np.real(ptm))
         self.N = int(np.sqrt(self.ptm.shape[0]))
 
     def get_liouvillian(self):
         basis = _make_basis(self.N)
         T,c = basis.transform_matrix(False,True)
-        return _Liouvillian(c*np.dot(T,np.dot(self.ptm,T.H)))
+        return _Liouvillian(c*np.dot(T,np.dot(self.ptm,T.conj().T)))
 
     def is_TP(self, tol = 0.0):
-        phi = np.matrix(np.zeros((self.N**2,1)))
+        phi = np.array(np.zeros((self.N**2,1)))
         phi[0,0] = 1
-        return la.norm(self.ptm.H*phi-phi)<=tol
+        return la.norm(self.ptm.conj().T@phi-phi)<=tol
 
     def is_unital(self, tol = 0.0):
-        phi = np.matrix(np.zeros((self.N**2,1)))
+        phi = np.array(np.zeros((self.N**2,1)))
         phi[0,0] = 1
-        return la.norm(self.tm*phi-phi)<=tol
+        return la.norm(self.tm@phi-phi)<=tol
 
 class _ChoiMatrix(object):
 
     def __init__(self,choi):
-        self.choi = np.matrix(choi,dtype=np.complex)
+        self.choi = np.array(choi,dtype=complex)
 
         #Diagonal should be real
         idx = np.diag_indices(self.choi.shape[0])
@@ -803,7 +812,7 @@ class _ChoiMatrix(object):
 
     def get_kraus(self):
         vals, vecs = la.eigh(self.choi)
-        vecs = np.matrix(vecs)
+        vecs = np.array(vecs)
         return _Kraus([np.sqrt(vals[i])*_inv_vec(vecs[:,i]) for i in range(len(vals))[::-1] if vals[i]>0])
 
     def get_liouvillian(self):
@@ -812,7 +821,7 @@ class _ChoiMatrix(object):
     def get_chi_matrix(self):
         basis = _make_basis(self.N)
         T,c = basis.transform_matrix(False,True)
-        return _ChiMatrix(1./self.N*c*np.dot(T.H,np.dot(self.choi,T)))
+        return _ChiMatrix(1./self.N*c*np.dot(T.conj().T ,np.dot(self.choi,T)))
 
     def is_TP(self, tol=0.0):
         return la.norm(_TrB(self.choi)-np.eye(self.N))<=tol
@@ -825,7 +834,7 @@ class _ChiMatrix(object):
 
     def __init__(self, chi_matrix, basis = None):
 
-        self.chi_matrix = np.matrix(chi_matrix,dtype=np.complex)
+        self.chi_matrix = np.array(chi_matrix,dtype=complex)
 
         if basis is not None:
             self._basis = basis
@@ -835,17 +844,17 @@ class _ChiMatrix(object):
     def get_choi_matrix(self):
         T,c = self._basis.transform_matrix(False,True)
         N = self._basis.basis_list[0].shape[0]
-        return _ChoiMatrix(N*c*np.dot(T,np.dot(self.chi_matrix,T.H)))
+        return _ChoiMatrix(N*c*np.dot(T,np.dot(self.chi_matrix,T.conj().T )))
 
 class _StiefelMatrix(object):
     # Corresponds to stacking Kraus operators
     def __init__(self, stiefel_matrix):
 
-        self.stiefel_matrix = np.matrix(stiefel_matrix,dtype=np.complex)
+        self.stiefel_matrix = np.array(stiefel_matrix,dtype=complex)
         if self.stiefel_matrix.shape[0] != self.stiefel_matrix.shape[1]**3:
             s =np.zeros((self.stiefel_matrix.shape[1]**3,self.stiefel_matrix.shape[1]),
-                       dtype=np.complex)
-            s = np.matrix(s)
+                       dtype=complex)
+            s = np.array(s)
             s[0:stiefel_matrix.shape[0],0:stiefel_matrix.shape[1]]=stiefel_matrix
 
             self.stiefel_matrix = s
@@ -864,7 +873,7 @@ class _StiefelMatrix(object):
         return True
 
     def is_TP(self, tol=0.0):
-        err = self.stiefel_matrix.H*self.stiefel_matrix
+        err = self.stiefel_matrix.conj().T@self.stiefel_matrix
         err -= np.eye(self.stiefel_matrix.shape[1])
         return la.norm(err)<=tol
 
@@ -874,12 +883,21 @@ class _StiefelMatrix2(object):
 
     def  __init__(self, stiefel_matrix):
 
-        self.stiefel_matrix2 = np.matrix(stiefel_matrix,dtype=np.complex)
+        self.stiefel_matrix2 = np.array(stiefel_matrix,dtype=complex)
+
+        #Issue: Tuple index out of range error issue (16,) resolved
+
+        if len(self.stiefel_matrix2.shape)==1:
+           self.stiefel_matrix2 = self.stiefel_matrix2[np.newaxis,:]
+
         N = self.stiefel_matrix2.shape[1]
-        
+
+        #Issue: Cannot broadcast input array from shape, 
+        #Fixed by swapping [:,np.newaxis] to [np.newaxis,:]
+
         if self.stiefel_matrix2.shape[0] != N**3:
             M = self.stiefel_matrix2.shape[0]//N
-            X = np.matrix(np.zeros((N**3,N)),dtype=np.complex)
+            X = np.array(np.zeros((N**3,N)),dtype=complex)
             for i in range(N):
                 X[i*N**2:i*N**2+M,:] = self.stiefel_matrix2[i*M:(i+1)*M,:]
 
@@ -899,7 +917,7 @@ class _StiefelMatrix2(object):
         return True
 
     def is_TP(self, tol=0.0):
-        err = self.stiefel_matrix.H*self.stiefel_matrix
+        err = self.stiefel_matrix.conj().T@self.stiefel_matrix
         err -= np.eye(self.stiefel_matrix.shape[1])
         return la.norm(err)<=tol
 
@@ -924,14 +942,14 @@ def _inv_vec(X):
     dim = int(np.sqrt(X.shape[0]))
     return np.reshape(X, (dim,dim)).T
 
-_sigmaI = np.matrix(np.eye(2))
-_sigmaX = np.matrix([[0,1],[1,0]])
-_sigmaY = np.matrix([[0,-1j],[1j,0]])
-_sigmaZ = np.matrix([[1,0],[0,-1]])
+_sigmaI = np.array(np.eye(2))
+_sigmaX = np.array([[0,1],[1,0]])
+_sigmaY = np.array([[0,-1j],[1j,0]])
+_sigmaZ = np.array([[1,0],[0,-1]])
 
 #Being lazy and just defining qubit bloch transform matrix
-_T2 = .5*np.matrix(np.concatenate((_vec(_sigmaI),_vec(_sigmaX),_vec(_sigmaY),_vec(_sigmaZ)),axis =1))
-_T2inv = 2*_T2.H
+_T2 = .5*np.array(np.concatenate((_vec(_sigmaI),_vec(_sigmaX),_vec(_sigmaY),_vec(_sigmaZ)),axis =1))
+_T2inv = 2*_T2.conj().T
 
 def _liou_choi_involution(op):
     """
@@ -945,7 +963,7 @@ def _liou_choi_involution(op):
     """
 
     NN = int(np.sqrt(op.shape[0]))
-    return np.matrix(np.concatenate(np.concatenate(np.reshape(np.array(op.T), (NN,NN,NN,NN), order = 'F'),axis=1),axis=1))
+    return np.array(np.concatenate(np.concatenate(np.reshape(np.array(op.T), (NN,NN,NN,NN), order = 'F'),axis=1),axis=1))
 
 
 def _TrA(X,n=None):
@@ -955,20 +973,25 @@ def _TrA(X,n=None):
 
     N = X.shape[0]
 
-    s = np.zeros((n,n),dtype=np.complex)
+    s = np.zeros((n,n),dtype=complex)
     for i in range(int(N/n)):
         s += X[i*n:(i+1)*n,i*n:(i+1)*n]
-    return np.matrix(s)
+    return np.array(s)
 
 def _TrB(X,n=None):
     # n x n matrix comes back
+
+    #Added to convert 0 dim arrays to 2d arrays
+    if X.shape == ():
+        X = np.reshape(X, (-1,1))
+
     if n is None:
         n = int(np.sqrt(X.shape[0]))
 
     N = X.shape[0]
     m = int(N/n)
-    s = np.zeros((n,n),dtype=np.complex)
+    s = np.zeros((n,n),dtype=complex)
     for i in range(n):
         for j in range(n):
             s[i,j] = np.trace(X[i*m:(i+1)*m,j*m:(j+1)*m])
-    return np.matrix(s)
+    return np.array(s)

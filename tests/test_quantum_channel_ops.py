@@ -115,10 +115,9 @@ class TestQuantumChannelOps(unittest.TestCase):
 
     def test_CNOT(self):
 
-        cnot_mat = np.matrix([[1,0,0,0],[0,1,0,0],[0,0,0,1],[0,0,1,0]])
+        cnot_mat = np.array([[1,0,0,0],[0,1,0,0],[0,0,0,1],[0,0,1,0]], dtype=complex)
 
         CNOT = ch.QuantumChannel(cnot_mat,'unitary')
-
 
         zero = np.zeros((2,2))
         zero[1,1] = 0

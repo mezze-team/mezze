@@ -42,9 +42,9 @@ class TestRandomUniformQuantumObjects(unittest.TestCase):
     def test_unitary_as_matrix(self):
         u = uniform.unitary(3,as_channel=False)
 
-        self.assertAlmostEqual(la.norm(u*u.H - np.eye(3)),0,14)
+        self.assertAlmostEqual(la.norm(u@u.conj().T - np.eye(3)),0,14)
         self.assertAlmostEqual(np.abs(la.det(u)),1,14)
-        self.assertEqual(type(u),np.matrix)
+        self.assertEqual(type(u),np.ndarray)
     
     def test_choi_as_channel(self):
         choi = uniform.choi(2)
@@ -55,8 +55,8 @@ class TestRandomUniformQuantumObjects(unittest.TestCase):
         choi = uniform.choi(3,as_channel=False)
 
         self.assertTrue(choi.shape == (9,9))
-        self.assertEqual(type(choi),np.matrix)
-        self.assertEqual(choi.dtype, np.complex)
+        self.assertEqual(type(choi),np.ndarray)
+        self.assertEqual(choi.dtype, np.complex128)
 
         self.assertTrue(ch.QuantumChannel(choi,'choi').is_valid())
     
@@ -69,8 +69,8 @@ class TestRandomUniformQuantumObjects(unittest.TestCase):
         stiefel = uniform.stiefel(3,as_channel=False)
 
         self.assertTrue(stiefel.shape == (27,3))
-        self.assertEqual(type(stiefel),np.matrix)
-        self.assertEqual(stiefel.dtype, np.complex)
+        self.assertEqual(type(stiefel),np.ndarray)
+        self.assertEqual(stiefel.dtype, np.complex128)
 
         self.assertTrue(ch.QuantumChannel(stiefel,'stiefel').is_valid())
 
@@ -84,7 +84,7 @@ class TestRandomUniformQuantumObjects(unittest.TestCase):
 
         self.assertTrue(bv.shape == (15,1))
         self.assertLessEqual(la.norm(bv),1)
-        self.assertEqual(type(bv),np.matrix)
+        self.assertEqual(type(bv),np.ndarray)
         self.assertTrue(ch.QuantumState(bv,'bv').is_valid())
 
     def test_pure_bloch_vector(self):
@@ -101,8 +101,8 @@ class TestRandomUniformQuantumObjects(unittest.TestCase):
         dm = uniform.density_matrix(4,as_state=False)
 
         self.assertTrue(dm.shape == (4,4))
-        self.assertTrue(type(dm), np.matrix)
-        self.assertTrue(dm.dtype == np.complex)
+        self.assertTrue(type(dm), np.ndarray)
+        self.assertTrue(dm.dtype == np.complex128)
         self.assertTrue(ch.QuantumState(dm).is_valid())
 
     def test_rank_choi(self):

@@ -29,107 +29,107 @@ class TestQuantumStateDtype(unittest.TestCase):
 
     def test_dm_dtype(self):
 
-        D = ch.QuantumState(np.eye(2,dtype=np.complex)*.5,'dm')
-        self.assertEqual(type(D._dm.density_matrix),np.matrix)
-        self.assertEqual(D._dm.density_matrix.dtype,np.complex)
+        D = ch.QuantumState(np.eye(2,dtype=np.complex128)*.5,'dm')
+        self.assertEqual(type(D._dm.density_matrix),type(np.array([]))) #Changed Type
+        self.assertEqual(D._dm.density_matrix.dtype,np.complex128)
 
         D = ch.QuantumState(np.eye(2)*.5,'dm')
-        self.assertEqual(type(D._dm.density_matrix),np.matrix)
-        self.assertEqual(D._dm.density_matrix.dtype,np.complex)
+        self.assertEqual(type(D._dm.density_matrix),type(np.array([]))) #Changed Type
+        self.assertEqual(D._dm.density_matrix.dtype,np.complex128)
 
-        self.assertEqual(type(D.density_matrix()),np.matrix)
-        self.assertEqual(D.density_matrix().dtype,np.complex)
+        self.assertEqual(type(D.density_matrix()),type(np.array([]))) #Changed Type
+        self.assertEqual(D.density_matrix().dtype,np.complex128)
 
-        self.assertEqual(type(D.density_vector()),np.matrix)
-        self.assertEqual(D.density_vector().dtype,np.complex)
+        self.assertEqual(type(D.density_vector()),type(np.array([]))) #Changed Type
+        self.assertEqual(D.density_vector().dtype,np.complex128)
 
-        self.assertEqual(type(D.bloch_vector()),np.matrix)
-        self.assertEqual(D.bloch_vector().dtype,np.float)
+        self.assertEqual(type(D.bloch_vector()),type(np.array([]))) #Changed Type
+        self.assertEqual(D.bloch_vector().dtype,np.float64)
 
         w,b = D.state_mixture()
         self.assertEqual(type(w),np.ndarray)
-        self.assertEqual(w.dtype,np.float)
-        self.assertTrue(all([type(bb)==np.matrix for bb in b]))
-        self.assertTrue(all([bb.dtype==np.complex for bb in b]))
+        self.assertEqual(w.dtype,np.float64)
+        self.assertTrue(all([type(bb)==type(np.array([])) for bb in b])) #Changed Type
+        self.assertTrue(all([bb.dtype==np.complex128 for bb in b]))
 
     def test_dv_dtype(self):
 
-        D = ch.QuantumState(ch._vec(np.eye(2,dtype=np.complex)*.5),'dv')
-        self.assertEqual(type(D._dv.density_vector),np.matrix)
-        self.assertEqual(D._dv.density_vector.dtype,np.complex)
+        D = ch.QuantumState(ch._vec(np.eye(2,dtype=np.complex128)*.5),'dv')
+        self.assertEqual(type(D._dv.density_vector),type(np.array([]))) #Changed Type
+        self.assertEqual(D._dv.density_vector.dtype,np.complex128)
 
         D = ch.QuantumState(ch._vec(np.eye(2)*.5),'dv')
-        self.assertEqual(type(D._dv.density_vector),np.matrix)
-        self.assertEqual(D._dv.density_vector.dtype,np.complex)
+        self.assertEqual(type(D._dv.density_vector),type(np.array([]))) #Changed Type
+        self.assertEqual(D._dv.density_vector.dtype,np.complex128)
 
-        self.assertEqual(type(D.density_vector()),np.matrix)
-        self.assertEqual(D.density_vector().dtype,np.complex)
+        self.assertEqual(type(D.density_vector()),type(np.array([]))) #Changed Type
+        self.assertEqual(D.density_vector().dtype,np.complex128)
 
-        self.assertEqual(type(D.density_matrix()),np.matrix)
-        self.assertEqual(D.density_matrix().dtype,np.complex)
+        self.assertEqual(type(D.density_matrix()),type(np.array([]))) #Changed Type
+        self.assertEqual(D.density_matrix().dtype,np.complex128)
 
-        self.assertEqual(type(D.bloch_vector()),np.matrix)
-        self.assertEqual(D.bloch_vector().dtype,np.float)
+        self.assertEqual(type(D.bloch_vector()),type(np.array([]))) #Changed Type
+        self.assertEqual(D.bloch_vector().dtype,np.float64)
 
         w,b = D.state_mixture()
         self.assertEqual(type(w),np.ndarray)
-        self.assertEqual(w.dtype,np.float)
-        self.assertTrue(all([type(bb)==np.matrix for bb in b]))
-        self.assertTrue(all([bb.dtype==np.complex for bb in b]))
+        self.assertEqual(w.dtype,np.float64)
+        self.assertTrue(all([type(bb)==type(np.array([])) for bb in b])) #Changed Type
+        self.assertTrue(all([bb.dtype==np.complex128 for bb in b]))
 
     def test_bv_dtype(self):
 
         D = ch.QuantumState(np.eye(3)[:,0],'bv')
-        self.assertEqual(type(D._bv.bloch_vector),np.matrix)
-        self.assertEqual(D._bv.bloch_vector.dtype,np.float)
+        self.assertEqual(type(D._bv.bloch_vector),type(np.array([]))) #Changed Type
+        self.assertEqual(D._bv.bloch_vector.dtype,np.float64)
 
-        D = ch.QuantumState(np.eye(3,dtype=np.complex)[:,0],'bv')
-        self.assertEqual(type(D._bv.bloch_vector),np.matrix)
-        self.assertEqual(D._bv.bloch_vector.dtype,np.float)
+        D = ch.QuantumState(np.eye(3,dtype=np.complex128)[:,0],'bv')
+        self.assertEqual(type(D._bv.bloch_vector),type(np.array([]))) #Changed Type
+        self.assertEqual(D._bv.bloch_vector.dtype,np.float64)
 
-        self.assertEqual(type(D.bloch_vector()),np.matrix)
-        self.assertEqual(D.bloch_vector().dtype,np.float)
+        self.assertEqual(type(D.bloch_vector()),type(np.array([]))) #Changed Type
+        self.assertEqual(D.bloch_vector().dtype,np.float64)
 
-        self.assertEqual(type(D.density_vector()),np.matrix)
-        self.assertEqual(D.density_vector().dtype,np.complex)
+        self.assertEqual(type(D.density_vector()),type(np.array([]))) #Changed Type
+        self.assertEqual(D.density_vector().dtype,np.complex128)
 
-        self.assertEqual(type(D.density_matrix()),np.matrix)
-        self.assertEqual(D.density_matrix().dtype,np.complex)
+        self.assertEqual(type(D.density_matrix()),type(np.array([]))) #Changed Type
+        self.assertEqual(D.density_matrix().dtype,np.complex128)
 
         w,b = D.state_mixture()
         self.assertEqual(type(w),np.ndarray)
-        self.assertEqual(w.dtype,np.float)
-        self.assertTrue(all([type(bb)==np.matrix for bb in b]))
-        self.assertTrue(all([bb.dtype==np.complex for bb in b]))
+        self.assertEqual(w.dtype,np.float64)
+        self.assertTrue(all([type(bb)==type(np.array([])) for bb in b])) #Changed Type
+        self.assertTrue(all([bb.dtype==np.complex128 for bb in b]))
 
     def test_sm_dtype(self):
 
-        D = ch.QuantumState((1.,[np.eye(2,dtype=np.complex)[:,0]]),'sm')
+        D = ch.QuantumState((1.,[np.eye(2,dtype=np.complex128)[:,0]]),'sm')
         self.assertEqual(type(D._sm.weights),np.ndarray)
-        self.assertEqual(D._sm.weights.dtype,np.float)
-        self.assertTrue(all([type(b)==np.matrix for b in D._sm.basis]))
-        self.assertTrue(all([b.dtype==np.complex for b in D._sm.basis]))
+        self.assertEqual(D._sm.weights.dtype,np.float64)
+        self.assertTrue(all([type(b)==type(np.array([])) for b in D._sm.basis])) #Changed Type
+        self.assertTrue(all([b.dtype==np.complex128 for b in D._sm.basis]))
 
         D = ch.QuantumState((1.,[np.eye(2)[:,0]]),'sm')
         self.assertEqual(type(D._sm.weights),np.ndarray)
-        self.assertEqual(D._sm.weights.dtype,np.float)
-        self.assertTrue(all([type(b)==np.matrix for b in D._sm.basis]))
-        self.assertTrue(all([b.dtype==np.complex for b in D._sm.basis]))
+        self.assertEqual(D._sm.weights.dtype,np.float64)
+        self.assertTrue(all([type(b)==type(np.array([])) for b in D._sm.basis])) #Changed Type
+        self.assertTrue(all([b.dtype==np.complex128 for b in D._sm.basis]))
 
         w,b = D.state_mixture()
         self.assertEqual(type(w),np.ndarray)
-        self.assertEqual(w.dtype,np.float)
-        self.assertTrue(all([type(bb)==np.matrix for bb in b]))
-        self.assertTrue(all([bb.dtype==np.complex for bb in b]))
+        self.assertEqual(w.dtype,np.float64)
+        self.assertTrue(all([type(bb)==type(np.array([])) for bb in b])) #Changed Type
+        self.assertTrue(all([bb.dtype==np.complex128 for bb in b]))
 
-        self.assertEqual(type(D.bloch_vector()),np.matrix)
-        self.assertEqual(D.bloch_vector().dtype,np.float)
+        self.assertEqual(type(D.bloch_vector()),type(np.array([]))) #Changed Type
+        self.assertEqual(D.bloch_vector().dtype,np.float64)
 
-        self.assertEqual(type(D.density_vector()),np.matrix)
-        self.assertEqual(D.density_vector().dtype,np.complex)
+        self.assertEqual(type(D.density_vector()),type(np.array([]))) #Changed Type
+        self.assertEqual(D.density_vector().dtype,np.complex128)
 
-        self.assertEqual(type(D.density_matrix()),np.matrix)
-        self.assertEqual(D.density_matrix().dtype,np.complex)
+        self.assertEqual(type(D.density_matrix()),type(np.array([]))) #Changed Type
+        self.assertEqual(D.density_matrix().dtype,np.complex128)
 
 
 if __name__ == '__main__':

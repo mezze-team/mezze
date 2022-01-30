@@ -24,10 +24,10 @@ import numpy as np
 import logging
 
 # Define unnormalized Pauli Matrices
-sigI = np.mat([[1., 0], [0, 1.]])
-sigX = np.mat([[0, 1.], [1., 0]])
-sigY = np.mat([[0, -1.j], [1.j, 0]])
-sigZ = np.mat([[1., 0], [0, -1.]])
+sigI = np.array([[1., 0], [0, 1.]],dtype=complex)
+sigX = np.array([[0, 1.], [1., 0]],dtype=complex)
+sigY = np.array([[0, -1.j], [1.j, 0]],dtype=complex)
+sigZ = np.array([[1., 0], [0, -1.]],dtype=complex)
 
 class LindbladFactory(object):
     """
@@ -50,11 +50,11 @@ class Lindblad(object):
         self.logger = logging.getLogger(__name__)
         self.num_qubits = num_qubits
         self.operator = np.zeros([4**num_qubits, 4**num_qubits])
-        self.identity = np.mat(np.eye(2**num_qubits))
+        self.identity = np.array(np.eye(2**num_qubits,dtype=complex))
 
     def add_with_t1(self, t1_time):
         rate = 1.0 / t1_time
-        sigma_minus = np.mat([[0, 1.0], [0, 0]])
+        sigma_minus = np.array([[0, 1.0], [0, 0]])
         if self.num_qubits == 1:
             self.add_lindblad(sigma_minus, rate)
         if self.num_qubits == 2:
@@ -74,10 +74,10 @@ class Lindblad(object):
         """
         Update the lindblad operator
         """
-        lindblad_operator = np.mat(operator)
-        update = np.kron(lindblad_operator.H.T, lindblad_operator) \
-                                - 0.5 * np.kron(self.identity, np.dot(lindblad_operator.H, lindblad_operator)) \
-                                - 0.5 * np.kron(np.dot(lindblad_operator.H, lindblad_operator).T, self.identity)
+        lindblad_operator = np.array(operator)
+        update = np.kron(lindblad_operator.conj(), lindblad_operator) \
+                                - 0.5 * np.kron(self.identity, np.dot(lindblad_operator.conj().T, lindblad_operator)) \
+                                - 0.5 * np.kron(np.dot(lindblad_operator.conj().T, lindblad_operator).T, self.identity)
         self.operator = self.operator + scale_factor * update
 
     def get_matrix(self):

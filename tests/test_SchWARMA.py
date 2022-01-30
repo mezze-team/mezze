@@ -28,10 +28,10 @@ import scipy.linalg as la
 import copy
 
 
-s_i = np.matrix([[1,0],[0,1]])
-s_x = np.matrix([[0,1],[1,0]])
-s_y = np.matrix([[0,-1j],[1j,0]])
-s_z = np.matrix([[1,0],[0,-1]])
+s_i = np.array([[1,0],[0,1]],dtype=complex)
+s_x = np.array([[0,1],[1,0]],dtype=complex)
+s_y = np.array([[0,-1j],[1j,0]],dtype=complex)
+s_z = np.array([[1,0],[0,-1]],dtype=complex)
 
 
 
@@ -43,7 +43,7 @@ class TestSchWARMA(unittest.TestCase):
         ARMAs.append(SchWARMA.ARMA([],[1]))
         ARMAs.append(SchWARMA.ARMA([],[1,1,1]))
 
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex)))}
 
         sch = SchWARMA.SchWARMA(ARMAs, [s_x,s_y,s_z], D)
 
@@ -68,7 +68,7 @@ class TestSchWARMA(unittest.TestCase):
         ARMAs.append(SchWARMA.ARMA([],[0]))
         ARMAs.append(SchWARMA.ARMA([],[0]))
 
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4))),
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex))),
              'X': ch.QuantumChannel(np.kron(s_x.conj(),s_x))}
 
         sch = SchWARMA.SchWARMA(ARMAs, [s_x,s_y,s_z], D)
@@ -84,18 +84,18 @@ class TestSchWARMA(unittest.TestCase):
         ARMAs.append(SchWARMA.ARMA([],[1]))
         ARMAs.append(SchWARMA.ARMA([],[1,1,1]))
 
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex)))}
 
         sch = SchWARMA.SchWARMA(ARMAs, [s_x,s_y,s_z], D)
 
-        self.assertTrue(all([la.norm(b+b.H<1e-9)for b in sch.basis]))
+        self.assertTrue(all([la.norm(b+b.conj().T<1e-9)for b in sch.basis]))
 
     def test_zero_basis(self):
 
         ARMAs = [SchWARMA.ARMA([.5,.25],[1])]
         ARMAs.append(SchWARMA.ARMA([],[1]))
 
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex)))}
 
         sch = SchWARMA.SchWARMA(ARMAs, [np.zeros((8,2)),np.zeros((2,2))],D)
 
@@ -109,22 +109,22 @@ class TestSchWARMA(unittest.TestCase):
         ARMAs.append(SchWARMA.ARMA([],[1]))
         ARMAs.append(SchWARMA.ARMA([],[1,1,1]))
 
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4))),
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex))),
              'X': ch.QuantumChannel(np.kron(s_x.conj(),s_x))}
 
-        ad = np.zeros((4,2),dtype=np.complex)
+        ad = np.zeros((4,2),dtype=complex)
         ad[2,1]=.1
         sch = SchWARMA.SchWARMA(ARMAs, [s_x,1j*s_y,ad], D)
 
         self.assertEqual(sch.N, 2)
-        self.assertTrue(all([la.norm(b + b.H < 1e-9) for b in sch.basis]))
+        self.assertTrue(all([la.norm(b + b.conj().T < 1e-9) for b in sch.basis]))
 
     def test_zero_basis(self):
 
         ARMAs = [SchWARMA.ARMA([.5,.25],[1])]
         ARMAs.append(SchWARMA.ARMA([],[1]))
 
-        D = {'I': ch.QuantumChannel(np.matrix(np.eye(4)))}
+        D = {'I': ch.QuantumChannel(np.array(np.eye(4,dtype=complex)))}
 
         sch = SchWARMA.SchWARMA(ARMAs, [s_z, np.zeros((8,2))],D)
 

@@ -35,8 +35,8 @@ class TestBasis(unittest.TestCase):
 
         for i,b in enumerate([core.s_i, core.s_x, core.s_y, core.s_z]):
             self.assertEqual(la.norm(b-pb.basis_list[i]),0)
-            self.assertEqual(type(pb.basis_list[i]),np.matrix)
-            self.assertEqual(pb.basis_list[i].dtype, np.complex)
+            self.assertEqual(type(pb.basis_list[i]),type(np.array([])))
+            self.assertEqual(pb.basis_list[i].dtype, np.complex128)
 
     def test_pauli_2(self):
         
@@ -44,7 +44,7 @@ class TestBasis(unittest.TestCase):
 
         self.assertEqual(len(pb.basis_list),16)
         self.assertTrue([b.shape==(16,16) for b in pb.basis_list])
-        self.assertTrue([type(b)==np.matrix for b in pb.basis_list])
+        self.assertTrue([type(b)==type(np.array([])) for b in pb.basis_list]) #Changed Type
 
         idx = 0
 
@@ -60,18 +60,18 @@ class TestBasis(unittest.TestCase):
         A = pb.transform_matrix(False,False)
 
         for i in range(A.shape[1]):
-            self.assertEqual(la.norm(A[:,i] - vec(pb.basis_list[i])),0)
+            self.assertEqual(la.norm(A[:,i,np.newaxis] - vec(pb.basis_list[i])),0)
 
-        self.assertEqual(type(A),np.matrix)
-        self.assertEqual(A.dtype,np.complex)
-        self.assertEqual(la.norm(A.H*A-2*np.eye(4)),0)
+        self.assertEqual(type(A),type(np.array([])))
+        self.assertEqual(A.dtype,np.complex128) #Changed Type
+        self.assertEqual(la.norm(A.conj().T@A-2*np.eye(4)),0)
 
         A,c = pb.transform_matrix(False,True)
         self.assertEqual(c,.5)
-        self.assertEqual(la.norm(c*A.H*A-np.eye(4)),0)
+        self.assertEqual(la.norm(c*A.conj().T@A-np.eye(4)),0)
 
         A = pb.transform_matrix(True,False)
-        self.assertAlmostEqual(la.norm(A.H*A-np.eye(4)),0,15)
+        self.assertAlmostEqual(la.norm(A.conj().T@A-np.eye(4)),0,15)
 
 
     def test_pauli_xform_matrix_2(self):
@@ -81,25 +81,25 @@ class TestBasis(unittest.TestCase):
         A = pb.transform_matrix(False,False)
 
         for i in range(A.shape[1]):
-            self.assertEqual(la.norm(A[:,i] - vec(pb.basis_list[i])),0)
+            self.assertEqual(la.norm(A[:,i,np.newaxis] - vec(pb.basis_list[i])),0)
 
-        self.assertEqual(type(A),np.matrix)
-        self.assertEqual(A.dtype, np.complex)
-        self.assertEqual(la.norm(A.H*A-4*np.eye(16)),0)
+        self.assertEqual(type(A),type(np.array([]))) #Changed Type
+        self.assertEqual(A.dtype, np.complex128)
+        self.assertEqual(la.norm(A.conj().T@A-4*np.eye(16)),0)
 
         A,c = pb.transform_matrix(False,True)
         self.assertEqual(c,.25)
-        self.assertEqual(la.norm(c*A.H*A-np.eye(16)),0)
+        self.assertEqual(la.norm(c*A.conj().T@A-np.eye(16)),0)
 
         A = pb.transform_matrix(True,False)
-        self.assertAlmostEqual(la.norm(A.H*A-np.eye(16)),0,15)
+        self.assertAlmostEqual(la.norm(A.conj().T@A-np.eye(16)),0,15)
 
     def test_gm_1(self):
 
         gm = GellMannBasis()
         for  b in gm.basis_list:
-            self.assertTrue(type(b), np.matrix)
-            self.assertEqual(b.dtype, np.complex)
+            self.assertTrue(type(b), type(np.array([]))) #Changed Type
+            self.assertEqual(b.dtype, np.complex128)
 
     def test_gm_xform_matrix_1(self):
 
@@ -108,12 +108,12 @@ class TestBasis(unittest.TestCase):
         A = gm.transform_matrix(False,False)
 
         for i in range(A.shape[1]):
-            self.assertEqual(la.norm(A[:,i] - vec(gm.basis_list[i])),0)
+            self.assertEqual(la.norm(A[:,i,np.newaxis] - vec(gm.basis_list[i])),0)
         
         A,c = gm.transform_matrix(False,True)
 
         self.assertEqual(c,1./3.)
-        self.assertAlmostEqual(la.norm(c*A*A.H-np.eye(9)),0,14)
+        self.assertAlmostEqual(la.norm(c*A@A.conj().T-np.eye(9)),0,14)
 
     def test_gm_xform_matrix_2(self):
 
@@ -122,12 +122,12 @@ class TestBasis(unittest.TestCase):
         A = gm.transform_matrix(False,False)
 
         for i in range(A.shape[1]):
-            self.assertEqual(la.norm(A[:,i] - vec(gm.basis_list[i])),0)
+            self.assertEqual(la.norm(A[:,i,np.newaxis] - vec(gm.basis_list[i])),0)
         
         A,c = gm.transform_matrix(False,True)
 
         self.assertEqual(c,1./9.)
-        self.assertAlmostEqual(la.norm(c*A*A.H-np.eye(81)),0,14)
+        self.assertAlmostEqual(la.norm(c*A@A.conj().T-np.eye(81)),0,14)
 
 if __name__ == '__main__':
     unittest.main()

@@ -160,7 +160,7 @@ class HamiltonianFunction(object):
         Hs = []
         ctrl_ctr = 0
         noise_ctr = 0
-        np_basis = [np.matrix(x) for x in self.basis]
+        np_basis = [np.array(x, dtype=complex) for x in self.basis]
         dim = np_basis[0].shape[0]
         for lcv in range(self.num_qubits):
             left = np.eye(dim ** (lcv))
@@ -187,7 +187,7 @@ class HamiltonianFunction(object):
         # At this point Hs and contain all "kronned" up hamiltonians, only needs to be summed
         H = []
         for t in range(len(Hs[0])):
-            Ht = np.zeros((dim ** self.num_qubits, dim ** self.num_qubits), dtype=np.complex)
+            Ht = np.zeros((dim ** self.num_qubits, dim ** self.num_qubits), dtype=complex)
             for i in range(len(Hs)):
                 Ht += Hs[i][t]
 
@@ -205,7 +205,7 @@ class HamiltonianFunction(object):
 
         self.precomputed = True
 
-        self.np_basis = [np.matrix(x, dtype=np.complex) for x in self.basis]
+        self.np_basis = [np.array(x, dtype=complex) for x in self.basis]
         self.single_qubit_drift_mask = [True for x in self.basis]
         self.single_qubit_noise_mask = [True for x in self.basis]
         self.single_qubit_control_mask = [[True for x in self.basis] for c in range(self.control_dim)]
@@ -358,7 +358,7 @@ class HamiltonianFunction(object):
              range(len(self.basis))] for x in range(len(self.basis))]
         dim = self.np_basis[0].shape[0]
         for t in range(len(cc)):
-            Ht = np.zeros((dim ** self.num_qubits, dim ** self.num_qubits), dtype=np.complex)
+            Ht = np.zeros((dim ** self.num_qubits, dim ** self.num_qubits), dtype=complex)
             for cont in range(self.two_control_dim):
                 for x in range(len(self.np_basis)):
                     for y in range(len(self.np_basis)):

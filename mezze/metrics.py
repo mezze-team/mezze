@@ -29,7 +29,7 @@ def fidelity(A,B):
     BB = B.density_matrix()
 
     sqA = la.sqrtm(AA)
-    return np.trace(np.real(la.sqrtm(sqA*BB*sqA)))**2
+    return np.trace(np.real(la.sqrtm(sqA@BB@sqA)))**2
 
 def infidelity(A,B):
     return 1. - fidelity(A,B)
@@ -45,7 +45,7 @@ def process_fidelity(A,B):
 def process_fidelity_to_unitary(A,U):
     N = U.kraus()[0].shape[0]
 
-    return 1./N**2*np.real(_vec(U.kraus()[0]).H*A.choi()*_vec(U.kraus()[0]))[0,0]
+    return 1./N**2*np.real(_vec(U.kraus()[0]).conj().T@A.choi()@_vec(U.kraus()[0]))[0,0]
 
 def process_infidelity(A,B):
     return 1. - process_fidelity(A,B)
@@ -57,4 +57,4 @@ def unitarity(A):
     P = A.ptm()[1:,1:]
     d = np.sqrt(P.shape[0]+1)
 
-    return 1./(d**2-1)*np.trace(P.H*P)
+    return 1./(d**2-1)*np.trace(P.conj().T@P)

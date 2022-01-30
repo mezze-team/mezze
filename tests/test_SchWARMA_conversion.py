@@ -28,13 +28,6 @@ import numpy as np
 import scipy.signal as si
 
 
-s_i = np.matrix([[1,0],[0,1]])
-s_x = np.matrix([[0,1],[1,0]])
-s_y = np.matrix([[0,-1j],[1j,0]])
-s_z = np.matrix([[1,0],[0,-1]])
-
-
-
 class TestSchWARMAConversion(unittest.TestCase):
 
     def test_fits_gauss(self):

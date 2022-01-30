@@ -30,31 +30,31 @@ class TestQuantumState(unittest.TestCase):
 
     def test_simple(self):
 
-        zero = np.matrix(np.eye(2))
+        zero = np.array(np.eye(2))
         zero[1,1] = 0
         p = ch.QuantumState(zero,'dm')
-        err = la.norm(p.bloch_vector()-np.matrix([[0],[0],[1]]))
+        err = la.norm(p.bloch_vector()-np.array([[0],[0],[1]]))
         self.assertEqual(err,0)
 
-        one = np.matrix(np.eye(2))
+        one = np.array(np.eye(2))
         one[0,0] = 0
         p = ch.QuantumState(one,'dm')
-        err = la.norm(p.bloch_vector()-np.matrix([[0],[0],[-1]]))
+        err = la.norm(p.bloch_vector()-np.array([[0],[0],[-1]]))
         self.assertEqual(err,0)
 
     def test_bv_to_dm(self):
 
-        p = ch.QuantumState(np.matrix(np.zeros((3,1))),'bv')
+        p = ch.QuantumState(np.array(np.zeros((3,1))),'bv')
         err = la.norm(p.density_matrix()-np.eye(2)/2.)
         self.assertEqual(err,0.)
 
-        p = ch.QuantumState(np.matrix([[1],[0],[0]]),'bv')
+        p = ch.QuantumState(np.array([[1],[0],[0]]),'bv')
         err = la.norm(p.density_matrix()-.5*(ch._sigmaX+ch._sigmaI))
         self.assertEqual(err,0.)
 
     def test_bv_to_sm(self):
 
-        p = ch.QuantumState(np.matrix(np.zeros((3,1))),'bv')
+        p = ch.QuantumState(np.array(np.zeros((3,1))),'bv')
         b,w = p.state_mixture()
         
         self.assertEqual(la.norm(b-.5*np.ones(2)),0)
@@ -67,11 +67,11 @@ class TestQuantumState(unittest.TestCase):
         Q,R = la.qr(G)
         d = np.random.rand(2)
         d = d/np.sum(d)
-        Q = np.matrix(Q)
-        dm = np.dot(Q,np.dot(np.diag(d),Q.H))
+        Q = np.array(Q)
+        dm = np.dot(Q,np.dot(np.diag(d),Q.conj().T))
 
         self.assertAlmostEqual(np.real(np.trace(dm)),1,12)
-        self.assertAlmostEqual(la.norm(dm-dm.H),0,12)
+        self.assertAlmostEqual(la.norm(dm-dm.conj().T),0,12)
 
         p = ch.QuantumState(dm)
 
@@ -100,8 +100,8 @@ class TestQuantumState(unittest.TestCase):
         Q,R = la.qr(G)
         d = np.random.rand(2)
         d = d/np.sum(d)
-        Q = np.matrix(Q)
-        dm = np.dot(Q,np.dot(np.diag(d),Q.H))
+        Q = np.array(Q)
+        dm = np.dot(Q,np.dot(np.diag(d),Q.conj().T))
 
         dv = ch._vec(dm)
 
@@ -161,8 +161,8 @@ class TestQuantumState(unittest.TestCase):
         Q,R = la.qr(G)
         d = np.random.rand(2)
         d = d/np.sum(d)
-        Q = np.matrix(Q)
-        dm = np.dot(Q,np.dot(np.diag(d),Q.H))
+        Q = np.array(Q)
+        dm = np.dot(Q,np.dot(np.diag(d),Q.conj().T))
 
 
         w,b = la.eigh(dm)
@@ -267,6 +267,9 @@ class TestQuantumState(unittest.TestCase):
         self.assertTrue(ch.QuantumState(sm,'sm').is_pure())
         self.assertEqual(ch.QuantumState(sm,'sm').rank(),1)
 
+        sm = ch.QuantumState(([1.0,], [np.array([[1],[0]]),]),'sm')
+        self.assertTrue(sm.is_pure())
+
     def test_is_pure_bv(self):
         bv = np.zeros((5**2-1,1))
         bv[np.random.randint(5**2-1)]=1.
@@ -286,7 +289,7 @@ class TestQuantumState(unittest.TestCase):
         self.assertFalse(dm.is_pure(tol=1e-14))
     
     def test_purity_threshold_bv(self):
-        phi = np.matrix([[1-1e-13,0,0]]).T
+        phi = np.array([[1-1e-13,0,0]]).T
 
         bv = ch.QuantumState(phi,'bv')
         self.assertTrue(bv.is_pure())
@@ -325,7 +328,7 @@ class TestQuantumState(unittest.TestCase):
         self.assertEqual(dm.rank(tol=1e-14),4)
     
     def test_validity_bv(self):
-        bv = np.matrix([1+1e-13,0,0]).T
+        bv = np.array([[1+1e-13,0,0]]).T
         SO,_ = la.qr(np.random.randn(3,3)) 
         bv = np.dot(SO,bv)
 
@@ -397,6 +400,23 @@ class TestQuantumState(unittest.TestCase):
         self.assertAlmostEqual(la.norm(b.density_matrix() - tot.TrB(3).density_matrix()),0)
         self.assertAlmostEqual(la.norm(a.density_matrix() - tot.TrA(2).density_matrix()),0)
 
+    def test_not_implemented(self):
+
+        try:
+            ch.QuantumState(np.eye(2),'notanoption')
+        except NotImplementedError:
+            pass
+
+    def test_missing_inits(self):
+        
+        s = ch.QuantumState([[1,0,0,0]],'dv')
+        self.assertTrue(s.density_vector().shape[0]==4 and s.density_vector().shape[1]==1)
+
+        s = ch.QuantumState([[1,0,0,0]],'bv')
+        self.assertTrue(s.bloch_vector().shape[0]==4 and s.bloch_vector().shape[1]==1)
+
+        s = ch.QuantumState([[.5,.5],[[1,0],[0,1]]],'sm')
+        self.assertTrue(s.state_mixture()[1][0].shape[0]==2 and s.state_mixture()[1][0].shape[1]==1)
 
 if __name__ == '__main__':
     unittest.main()

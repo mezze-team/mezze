@@ -195,7 +195,7 @@ class Simulation(object):
             superoperator_size = self.hamiltonian.get_qubit_dim() ** self.hamiltonian.get_num_qubits()
         else:
             superoperator_size = (self.hamiltonian.get_qubit_dim()**2) ** self.hamiltonian.get_num_qubits()
-        superoperator_sum = np.zeros((superoperator_size, superoperator_size), dtype=np.complex128)
+        superoperator_sum = np.zeros((superoperator_size, superoperator_size), dtype=complex)
         for count in xrange(self.config.num_runs):
             run_report = self._run_once()
             report = self._update_report(report, run_report)
@@ -236,7 +236,7 @@ class Simulation(object):
             superoperator_size = self.hamiltonian.get_qubit_dim() ** self.hamiltonian.get_num_qubits()
         else:
             superoperator_size = (self.hamiltonian.get_qubit_dim()**2) ** self.hamiltonian.get_num_qubits()
-        superoperator_sum = np.zeros((superoperator_size, superoperator_size), dtype=np.complex128)
+        superoperator_sum = np.zeros((superoperator_size, superoperator_size), dtype=complex)
 
         num_procs = min(self.config.num_runs, self.config.num_cpus)
         q_in = multiprocessing.Queue(1)
@@ -308,7 +308,7 @@ class NonLindbladPropagator(Propagator):
         Propagator.__init__(self, config, hamiltonian)
 
     def _next(self):
-        return np.mat(scipy.linalg.expm(-1.j * self.hamiltonian.next() * self.dt / self.hbar))
+        return scipy.linalg.expm(-1.j * self.hamiltonian.next() * self.dt / self.hbar)
 
     def propagate(self):
         unitary_matrix = self._get_initial_state()
@@ -319,22 +319,22 @@ class NonLindbladPropagator(Propagator):
         if self.get_unitary: # NEW
             superoperator_matrix = unitary_matrix
         else:
-            superoperator_matrix = scipy.kron(unitary_matrix.conjugate(), unitary_matrix)
+            superoperator_matrix = np.kron(unitary_matrix.conjugate(), unitary_matrix)
         return superoperator_matrix
 
     def _get_initial_state(self):
-        return np.mat(np.eye(self.qubit_dim ** self.num_qubits, dtype=np.complex128))
+        return np.eye(self.qubit_dim ** self.num_qubits, dtype=complex)
 
 class LindbladPropagator(Propagator):
     def __init__(self, config, hamiltonian, lindblad):
         Propagator.__init__(self, config, hamiltonian)
         self.lindblad = lindblad
-        self.identity = np.mat(np.eye(self.qubit_dim  ** self.num_qubits, dtype=np.complex128))
+        self.identity = np.eye(self.qubit_dim  ** self.num_qubits, dtype=complex)
 
     def _next(self):
         ham = self.hamiltonian.next()
         intermediate = -1.j * (np.kron(self.identity, ham) - np.kron(ham.T, self.identity)) / self.hbar + self.lindblad
-        return np.mat(scipy.linalg.expm(intermediate * self.dt))
+        return scipy.linalg.expm(intermediate * self.dt)
 
     def propagate(self):
         superoperator_matrix = self._get_initial_state()
@@ -345,4 +345,4 @@ class LindbladPropagator(Propagator):
         return superoperator_matrix
 
     def _get_initial_state(self):
-        return np.mat(np.kron(self.identity, self.identity))
+        return np.kron(self.identity, self.identity)
