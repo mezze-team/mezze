@@ -484,6 +484,19 @@ class TestCirq(unittest.TestCase):
         acv = np.real(np.fft.ifft(X*X.conj()))
         self.assertLess(acv[1]/acv[0],.1)
 
+    def test_channel_to_circuit(self):
+
+        C = ch.QuantumChannel(np.eye(2),'unitary')
+
+        circ = mhel.channel_to_circuit(C)
+
+        self.assertEqual(np.linalg.norm(C.kraus()[0]-list(circ[0])[0].gate._unitary_()),0)
+
+        C = ch.QuantumChannel(np.eye(8),'unitary')
+
+        circ = mhel.channel_to_circuit(C)
+
+        self.assertEqual(np.linalg.norm(C.kraus()[0]-list(circ[0])[0].gate._unitary_()),0)
 
 if __name__ == '__main__':
     unittest.main()

@@ -31,6 +31,7 @@ import numpy as np
 import scipy.linalg as la
 import mezze.random.SchWARMA as sch
 import scipy.signal as si
+import tempfile
 
 try:
 
@@ -58,6 +59,9 @@ try:
 
             N = PhiRecon.shape[1]*2
             R = np.real(np.fft.fft(Sfull)[:len(ps)])/N
+
+            if a_dim_less_first == 0:
+                return np.sqrt(R[0]), np.array([1,])
 
             if not overdetermined:
                 ahat = np.concatenate([[1], -la.pinv(la.toeplitz(R[:a_dim_less_first])) @ R[1:1+a_dim_less_first]])
@@ -93,7 +97,7 @@ try:
 
             return out['x']
 
-        def ARMA_cepstrum_est(self, ps, PhiRecon, Phi, b_len, a_len_less_first):
+        def ARMA_cepstrum_est(self, ps, PhiRecon, Phi, b_len, a_len_less_first, overdetermined=False):
 
             """
             Adapted from method described in Kaderli, A., & Kayhan, A. S. (2000). Spectral estimation of ARMA processes using ARMA-cepstrum recursion. IEEE Signal Processing Letters, 7(9), 259-261.
@@ -104,11 +108,11 @@ try:
 
             Sfull[Sfull<=0] = np.min(Sfull[Sfull>0])/10
 
-            cep = np.real(np.fft.ifft(.5*np.log(Sfull)))
+            cep = np.real(np.fft.ifft(np.log(Sfull)))
             #cep = np.real(.5*np.log(Sfull))
 
-            _, a_temp = self.YW_est(ps,PhiRecon, a_len_less_first, True)
 
+            _, a_temp = self.YW_est(ps,PhiRecon, a_len_less_first, overdetermined)
 
             t_len = np.maximum(b_len, a_len_less_first+1)
             b_cep = np.zeros(t_len)
@@ -119,7 +123,7 @@ try:
             for k in range(1,len(b_cep)):
                 b_cep[k] = k*cep[k]-np.sum([m*b_cep[m]*a_cep[k-m] for m in range(1,k)])
                 b_cep[k]+= +np.sum([m*a_cep[m]*b_cep[k-m] for m in range(1,k+1)])
-                b_cep[k]+= np.sum([i*cep[i]*np.sum([a_cep[m]*b_cep[k-i-m] for m in range(0,k)]) for i in range(1,k)])
+                b_cep[k]+= np.sum([i*cep[i]*np.sum([a_cep[m]*b_cep[k-i-m] for m in range(0,k-i)]) for i in range(1,k)])
                 b_cep[k]/=k
 
             b_cep = b_cep[:b_len]
@@ -139,6 +143,55 @@ try:
 
             return b_cep, a_cep
 
+        def ARMA_modified_cepstrum_est(self, ps, PhiRecon, Phi, b_len, a_len_less_first, overdetermined=False):
+            b_temp, a_temp = self.YW_est(ps,PhiRecon, a_len_less_first, overdetermined)
+
+            S = self.NNLS_recon(ps,PhiRecon)
+            Sfull = np.concatenate([S, S[1:][::-1]])
+
+            w,h = si.freqz(b_temp,a_temp,worN=len(S))
+
+            P_A = np.abs(h)**2
+            P_A_full = np.concatenate([P_A, P_A[1:][::-1]])
+
+            Sfull = Sfull*P_A_full**-1
+            Sfull[Sfull<=0] = np.min(Sfull[Sfull>0])/10
+
+            corr = np.real(np.fft.ifft(Sfull))
+            cep = np.real(np.fft.ifft(np.log(Sfull)))
+            #cep = np.real(.5*np.log(Sfull))
+
+            t_len = np.maximum(b_len, a_len_less_first+1)
+            b_cep = np.zeros(t_len)
+            a_cep = np.zeros(t_len)
+            a_cep[0] =1.
+            #a_cep[:a_len_less_first+1]=a_temp
+
+            b_cep[0] = 1
+            for k in range(1,len(b_cep)):
+                b_cep[k] = k*cep[k]-np.sum([m*b_cep[m]*a_cep[k-m] for m in range(1,k)])
+                b_cep[k]+= +np.sum([m*a_cep[m]*b_cep[k-m] for m in range(1,k+1)])
+                b_cep[k]+= np.sum([i*cep[i]*np.sum([a_cep[m]*b_cep[k-i-m] for m in range(0,k-i)]) for i in range(1,k)])
+                b_cep[k]/=k
+
+            b_cep = b_cep[:b_len]
+            #a_cep = a_cep[:a_len_less_first+1]
+            a_cep = a_temp
+
+            w_cep, h_cep = si.freqz(b_cep,a_cep, worN=len(S), whole=False)
+
+            sigma2 = np.median(S/np.abs(h_cep)**2)
+
+
+            _, h_cep_full = si.freqz(b_cep,a_cep, worN=Phi.shape[1], whole=True)
+
+            fun = lambda sigma: np.sum((ps-(.5+.5*np.exp(-sigma**2*Phi@np.abs(h_cep_full)**2)))**2)
+
+            out = op.minimize(fun, np.sqrt(sigma2))
+
+            b_cep = b_cep*out['x']
+
+            return b_cep, a_cep
 
         def set_coeffs(self, **kwargs):
             self.model.layers[-1].set_coeffs(**kwargs)
@@ -149,18 +202,32 @@ try:
             if len(learning_rates.shape) == 0:
                 learning_rates = np.array([learning_rates])
 
-            earlyStop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=epochs, restore_best_weights=True)
+            with tempfile.NamedTemporaryFile() as tmp:
 
-            for learning_rate in learning_rates:
-                self.model.compile(optimizer=optim(learning_rate), loss='mean_squared_error')
-                self.model.fit(x=[Phi, num_gates], y=ps, epochs=epochs, verbose=0, callbacks=[earlyStop])
-                self.model.set_weights(earlyStop.best_weights)
+                earlyStop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=50, restore_best_weights=True)
+
+                bestFit = tf.keras.callbacks.ModelCheckpoint(
+                    filepath = tmp.name, monitor='loss', mode='min', save_best_only=True, save_weights_only=True, verbose=0)
+
+                for learning_rate in learning_rates:
+                    self.model.compile(optimizer=optim(learning_rate), loss='mean_squared_error')
+                    weights = self.model.get_weights()
+                    loss0 = self.model.evaluate([Phi,num_gates],y=ps,verbose=0)
+                    self.model.fit(x=[Phi, num_gates], y=ps, epochs=epochs, verbose=0, callbacks=[bestFit,earlyStop])
+                    #self.model.set_weights(earlyStop.best_weights)
+                    
+                    self.model.load_weights(tmp.name)
+                    loss1 = self.model.evaluate([Phi,num_gates],y=ps,verbose=0)
+                    if loss1>loss0:
+                        self.model.set_weights(weights)
+                    #print(self.model.evaluate([Phi,num_gates],y=ps,verbose=0))
+
 
             #weights = self.model.get_weights()
             #if weights[0][0] < 0:
             #    weights[0][0] *= -1
             #    self.model.set_weights(weights)
-            return earlyStop.best
+            return self.model.evaluate([Phi,num_gates],y=ps,verbose=0) #earlyStop.best
 
         def convert_to_lfilter_form(self):
             return self.model.layers[-1].convert_to_lfilter_form()
@@ -174,6 +241,16 @@ try:
             RSS = np.sum((ps-self.model([[Phi, num_gates]]))**2)
 
             return 2*k+len(ps)*np.log(RSS)
+
+        def bayesian_info_criterion(self, ps, Phi, num_gates):
+
+            if len(ps.shape)==1:
+                ps=ps[:,np.newaxis]
+
+            k = np.sum([np.prod(w.shape) for w in self.model.layers[-1].trainable_weights])
+            RSS = np.sum((ps-self.model([[Phi, num_gates]]))**2)
+
+            return len(ps)*np.log(RSS/len(ps))+k*np.log(len(ps))
 
 except NameError:
     pass

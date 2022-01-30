@@ -18,11 +18,15 @@ setup(
     url='http://jhuapl.edu',
     packages=find_packages(),
     install_requires=[
-        'tensorflow',
-        'tensorflow-quantum',
+        'cirq',
         'numpy',
         'scipy',
     ],
+    extras_require={
+        'zne': ['mitiq','tensorflow','tensorflow-quantum'],
+        'tfq': ['tensorflow','tensorflow-quantum'],
+        'qsim': ['qsimcirq']
+    },
     classifiers=[
         'Development Status :: Beta',
         'Environment :: Console',

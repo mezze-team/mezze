@@ -26,12 +26,19 @@ try:
 except ImportError:
     pass
 
+try:
+    import qsimcirq
+except ImportError:
+    pass
+
 import numpy as np
 import scipy.signal as si
 import scipy.stats as st
 import sympy
 import cirq
 import mezze.channel as ch
+
+import multiprocessing as mp
 
 from abc import ABC, abstractmethod
 
@@ -438,7 +445,29 @@ class SpecifiedInstanceSchWARMAFier(SchWARMAFier):
             vals= np.array([np.squeeze(vals)])
 
         return vals        
-    
+
+class FixedErrorSchWARMAFier(NullSchWARMAFier):
+    """
+    Takes a given error and adds it after each gate.  Useful for applying markovian channels as a comparison to correlated unitaries
+
+    """ 
+
+    def __init__(self, op):
+        self.b = np.array([0,])
+        self.a = np.array([1,])
+        self.op = op
+        self.sym = None
+
+    def schwarmafy(self, circ):
+
+        noisy_circuit = cirq.Circuit()
+        ordered_qubits = cirq.ops.QubitOrder.as_qubit_order(cirq.ops.QubitOrder.DEFAULT).order_for(circ.all_qubits())
+        for i, moment in enumerate(circ.moments):
+            noisy_circuit.append(moment)
+            for j, q in enumerate(ordered_qubits):
+                noisy_circuit.append(self.op.on(q))
+        
+        return noisy_circuit, []
 
 class SchWARMAFiedCircuitSimulator(object):
     """
@@ -464,23 +493,15 @@ class CirqSchWARMASim(SchWARMAFiedCircuitSimulator):
 
     def state_sim(self, num_MC, rgen=np.random, dtype=np.complex64):
         vals = self.schwarmafier.gen_noise_instances(self.circ, num_MC, rgen, self.SPAM)
-        states = []
         sim = cirq.Simulator(dtype=dtype)
-        for row in vals:
-            resolver = cirq.ParamResolver({str(h):row[i] for i,h in enumerate(self.syms)})
-            states.append(sim.simulate(self.noisy_circuit, resolver).final_state_vector)
-        
-        return np.array(states)
+        resolvers = [cirq.ParamResolver({str(h):row[i] for i,h in enumerate(self.syms)}) for row in vals]
+        return np.array([s.final_state_vector for s in sim.simulate_sweep(self.noisy_circuit, resolvers)])
 
     def dm_sim(self, num_MC, rgen=np.random, dtype=np.complex64):
         vals = self.schwarmafier.gen_noise_instances(self.circ, num_MC, rgen, self.SPAM)
-        dms = []
         sim = cirq.DensityMatrixSimulator(dtype=dtype)
-        for row in vals:
-            resolver = cirq.ParamResolver({str(h):row[i] for i,h in enumerate(self.syms)})
-            dms.append(sim.simulate(self.noisy_circuit, resolver).final_density_matrix)
-
-        return np.mean(dms,0)
+        resolvers = [cirq.ParamResolver({str(h):row[i] for i,h in enumerate(self.syms)}) for row in vals]
+        return np.mean([s.final_density_matrix for s in sim.simulate_sweep(self.noisy_circuit, resolvers)],0)
 
     def unitary_props_sim(self, num_MC, as_channel = True, rgen=np.random):
         vals = self.schwarmafier.gen_noise_instances(self.circ, num_MC, rgen, self.SPAM)
@@ -495,6 +516,23 @@ class CirqSchWARMASim(SchWARMAFiedCircuitSimulator):
         
         return unitary_props
         
+class QsimSchWARMASim(SchWARMAFiedCircuitSimulator):
+    """
+    
+    Simulator that uses qsim backend
+
+    """
+
+    def state_sim(self, num_MC, rgen=np.random):
+        vals = self.schwarmafier.gen_noise_instances(self.circ, num_MC, rgen, self.SPAM)
+        opts = qsimcirq.QSimOptions(cpu_threads=mp.cpu_count, verbosity=0)
+        sim = qsimcirq.QSimSimulator(opts)
+        resolvers = [cirq.ParamResolver({str(h):row[i] for i,h in enumerate(self.syms)}) for row in vals]
+        return np.array([s.final_state_vector for s in sim.simulate_sweep(self.noisy_circuit, resolvers)])
+
+    def dm_sim(self, num_MC,rgen=np.random):
+        out = self.state_sim(num_MC,rgen)
+        return np.tensordot(out.T, out.conj(), axes=[2,0]) / num_MC
 
 
 class TensorFlowSchWARMASim(SchWARMAFiedCircuitSimulator):

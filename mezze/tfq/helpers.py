@@ -66,7 +66,7 @@ def channel_list_to_circuit(Clist, qbits = None):
 def compute_PTM_prop(Clist):
     PTMProp = [Clist[0].ptm()[1:,1:]]
     for i in range(1,len(Clist)):
-        PTMProp.append(Clist[i].ptm()[1:,1:]*PTMProp[-1])
+        PTMProp.append(Clist[i].ptm()[1:,1:]@PTMProp[-1])
 
     return np.array(PTMProp)
     

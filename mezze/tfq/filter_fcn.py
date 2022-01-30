@@ -30,6 +30,10 @@ import numpy as np
 import scipy.signal as si
 import cirq
 from mezze.tfq.helpers import *
+import mezze.tfq.simulate as mtfqs
+
+from functools import reduce
+from itertools import product
 
 def get_FTTS_FFs(N=128,worN=8192):
     freqs = np.linspace(0, np.pi, N // 2 + 1)[:-1]
@@ -251,3 +255,187 @@ def compute_Z_dephasing_prob(circ: cirq.Circuit, S):
     oi = np.sum(P*(F_zx+F_zy))/worN
 
     return .5+.5*np.exp(-oi/2)
+
+
+def multi_qubit_dephasing_expectation(circ, S, worN=8192):
+    """
+    Computes the expectation of a circuit under the noise of a SchWARMAFier
+    
+    Currently assumes preparation in |0> and an \prod Z as the observable.
+    
+    Currently limited to SimpleDephasinSchWARMAFiers
+    
+    """
+    
+    num_qubits = len(circ.all_qubits())
+    
+    #Compute the multiqubit pauli basis -- maybe faster with cirq/TFQ somehow?
+    paulis = ch.PauliBasis(num_qubits).basis_list
+    
+    # Assume default observable and inverse
+    O = reduce(np.kron, [ch._sigmaZ,]*num_qubits)
+    Oinv = O.conj().T
+
+    # Compute ideal output (note does full unitary evaluation)
+    rho0 = np.zeros_like(O)
+    rho0[0,0]=1
+    rho0=circ.unitary()@rho0@circ.unitary().conj().T
+    
+    f = compute_switching_functions(circ)
+
+    mq_noise = compute_mq_noise_tuple(S, paulis, num_qubits, worN=worN)
+    
+    A_BB_idxs, A_BBs = compute_A_BBs(paulis, O, Oinv)
+    
+    C2 = compute_2nd_cumulant_dephasing(f, mq_noise, A_BB_idxs, A_BBs, worN)
+    Lambda = la.expm(-C2)
+
+    return np.trace(Lambda@rho0@O)
+
+
+def compute_switching_functions(circ):
+    """
+    Computes the switching functions (densely) from a cirq cirquit
+    
+    """
+    
+    # speed up thought - use circ.unitary/TFQ somehow?
+    Clist = cirq_moments_to_channel_list(circ)
+    prop = [Clist[-1]]
+    for C in Clist[:-1][::-1]:
+        prop = [prop[0]*C]+prop
+
+    f = np.squeeze([C.ptm().T for C in prop])
+    return f
+
+def compute_mq_noise_tuple(S, paulis, num_qubits, worN=8192):
+    """
+    Tracks down indices in paulis for the noise defined in S and returns tuples [i,j,S],
+    where S is the (cross) spectrum between noise defined on paulis[i] and paulis[j].
+    Ignores pauli elements that do not have noise defined on them.
+    
+    """
+    
+    if not isinstance(S, mtfqs.SimpleDephasingSchWARMAFier):
+        raise(NotImplementedError('SchWARMAFierType Not Supported'))
+    
+    Hs = []
+    for i in range(num_qubits):
+        base = [ch._sigmaI,]*num_qubits
+        base[i]= S.op(-np.pi)._unitary_()#ch._sigmaZ
+        Hs.append(reduce(np.kron, base))
+
+    Hs_idx = []
+    for H in Hs:
+        #Hs_idx.append(np.argmin([np.linalg.norm(p-H) for p in paulis]))
+        Hs_idx.append(np.argmax([np.abs(np.trace(H@p)) for p in paulis]))
+
+    return [(i,i,S.psd(worN=worN, whole=True)[1]) for i in Hs_idx]
+
+def compute_A_BBs(paulis, O, Oinv):
+    """
+    Compute the filterfunction operators from the multiqubit pauli basis and the observable (and its inverse)
+    
+    Args:
+        paulis: list of pauli basis matrices
+        O: Observable
+        Oinv: Observable's inverse
+        
+    Returns:
+    
+        A_BB_idxs: list (i,j) pairs corresponding to paulis[i], paulis[j] that have \mathcal{A}_\paulis[i]\paulis[j] nonzero
+        A_BBs: list of those nonzero operators
+    
+    """
+    A_BB_idxs = []
+    A_BBs = []
+    for i,alpha in enumerate(paulis):
+        for j,beta in enumerate(paulis):
+            A_BB=paulis[i]@paulis[j]-Oinv@paulis[i]@O@paulis[j]-paulis[i]@Oinv@paulis[j]@O+Oinv@paulis[i]@paulis[j]@O
+            if np.linalg.norm(A_BB)>1e-12:
+                A_BB_idxs.append([i,j])
+                A_BBs.append(A_BB)
+    return A_BB_idxs, A_BBs
+
+def compute_2nd_cumulant_dephasing(f, mq_noise, A_BB_idxs, A_BBs, worN=8192):
+    """
+    Computes the (scaled) cumulant. For notation see appendix of correlated ZNE paper (ref forthcoming)
+    
+    Args:
+        f: len(circ)xlen(basis)xlen(basis) matrix of switching functions, to be fourier transformed
+        mq_noise: list of [alpha, alphap, S] where alpha,alphap are indices into the basis for the switching function, and S is the cross spectrum
+        A_BB_idxs: list o [beta,betap] indices into the basis where \mathcal{A}_{\beta\beta'} are not0
+        A_BBs: list of operators \mathcal{A}_{\beta\beta'}
+        
+    Returns:
+        np.array second cumulant to be negative matrix exponentiated to produce scaling Lambda
+    
+    """
+    F = {}
+    Hs_idx = set([i[0] for i in mq_noise]+[i[1] for i in mq_noise])
+    val_idxs = set(np.array(A_BB_idxs).flatten())
+    for idx1 in Hs_idx:
+        for idx2 in val_idxs:
+            F[(idx1,idx2)]=np.fft.fft(f[:,idx1,idx2],n=worN)
+            #F[(idx2,idx1)]=np.fft.fft(f[idx2,idx1],n=worN)
+
+    C2 = np.zeros((2**num_qubits,2**num_qubits),dtype=complex)
+
+    for noise in mq_noise:
+        alpha = noise[0]
+        alphap = noise[1]
+        Saa = noise[2]
+        for i, idx in enumerate(A_BB_idxs):
+            beta = idx[0]
+            betap = idx[1]
+            A_BB = A_BBs[i]
+
+            #does this need to be made real?
+            FF = F[(alpha,beta)]*F[(alphap,betap)].conj()
+            C2+= np.sum(Saa*FF/worN)*A_BB
+    
+    return C2/8
+
+def get_filter_fcns_only(circ, S, worN=8192):
+
+    num_qubits = len(circ.all_qubits())
+    
+    #Compute the multiqubit pauli basis -- maybe faster with cirq/TFQ somehow?
+    paulis = ch.PauliBasis(num_qubits).basis_list
+    
+    # Assume default observable and inverse
+    O = reduce(np.kron, [ch._sigmaZ,]*num_qubits)
+    Oinv = O.conj().T
+
+    # Compute ideal output (note does full unitary evaluation)
+    rho0 = np.zeros_like(O)
+    rho0[0,0]=1
+    rho0=circ.unitary()@rho0@circ.unitary().conj().T
+    
+    f = compute_switching_functions(circ)
+    mq_noise = compute_mq_noise_tuple(S, paulis, num_qubits, worN=worN)
+    
+    A_BB_idxs, A_BBs = compute_A_BBs(paulis, O, Oinv)
+    
+    F = {}
+    Hs_idx = set([i[0] for i in mq_noise]+[i[1] for i in mq_noise])
+    val_idxs = set(np.array(A_BB_idxs).flatten())
+    for idx1 in Hs_idx:
+        for idx2 in val_idxs:
+            F[(idx1,idx2)]=np.fft.fft(f[:,idx1,idx2],n=worN)
+
+    FFFs = {}
+    for noise in mq_noise:
+        alpha = noise[0]
+        alphap = noise[1]
+        Saa = noise[2]
+        for i, idx in enumerate(A_BB_idxs):
+            beta = idx[0]
+            betap = idx[1]
+            A_BB = A_BBs[i]
+
+            #does this need to be made real?
+            FF = F[(alpha,beta)]*F[(alphap,betap)].conj()
+            FFFs[(alpha,beta,alphap,betap)]=FF.copy()
+
+    return FFFs    
