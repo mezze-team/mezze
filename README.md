@@ -47,7 +47,7 @@ If you experiment with the heavy-tailed (Levy-alpha stable) variants of SchWARMA
 
 The zero noise extrapolation examples are from 
 
-[4] Schultz, K., LaRose, R., Mari, A.,Quiroz, G., Shammah, N., Clader, B. D., and Zeng, W. J. (2022) Reducing the impact of time-correlated noise on zero-noise extrapolation.
+[4] Schultz, K., LaRose, R., Mari, A.,Quiroz, G., Shammah, N., Clader, B. D., and Zeng, W. J. (2022) Reducing the impact of time-correlated noise on zero-noise extrapolation. arXiv preprint[arXiv:2201.11792](https://arxiv.org/abs/2201.11792)
 
 ## Tensorflow Quantum Branch
 
