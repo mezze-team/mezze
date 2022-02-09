@@ -28,6 +28,7 @@ except ImportError:
 
 import numpy as np
 import scipy.signal as si
+import scipy.linalg as la
 import cirq
 from mezze.tfq.helpers import *
 import mezze.tfq.simulate as mtfqs
@@ -378,8 +379,8 @@ def compute_2nd_cumulant_dephasing(f, mq_noise, A_BB_idxs, A_BBs, worN=8192):
         for idx2 in val_idxs:
             F[(idx1,idx2)]=np.fft.fft(f[:,idx1,idx2],n=worN)
             #F[(idx2,idx1)]=np.fft.fft(f[idx2,idx1],n=worN)
-
-    C2 = np.zeros((2**num_qubits,2**num_qubits),dtype=complex)
+    dim = A_BBs[0].shape[0]
+    C2 = np.zeros((dim, dim),dtype=complex)
 
     for noise in mq_noise:
         alpha = noise[0]
